@@ -99,7 +99,11 @@ const Broadcast = () => {
   );
 
   const toggle = (id) => {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+    setSelected((prev) =>
+      prev.some((item) => String(item) === String(id))
+        ? prev.filter((item) => String(item) !== String(id))
+        : [...prev, id]
+    );
     setActiveGroupId(null);
   };
 
@@ -181,9 +185,22 @@ const Broadcast = () => {
     const contactIds = res.data.contactIds || [];
     setSelected(contactIds);
     setActiveGroupId(groupId);
+
     const grp = groups.find((g) => String(g.id) === String(groupId));
-    showToast(`📁 Group "${grp?.name || 'Selected'}" Loaded: ${contactIds.length} contact(s) selected`);
+    const memberNames = contacts
+      .filter((c) => contactIds.some((id) => String(id) === String(c.id)))
+      .map((c) => c.name)
+      .join(', ');
+
+    showToast(`📁 Group "${grp?.name || 'Selected'}" Loaded: [${memberNames || `${contactIds.length} contacts`}]`);
   };
+
+  const activeGroupObj = useMemo(() => groups.find((g) => String(g.id) === String(activeGroupId)), [groups, activeGroupId]);
+
+  const activeGroupContacts = useMemo(() => {
+    if (!activeGroupId) return [];
+    return contacts.filter((c) => selected.some((sId) => String(sId) === String(c.id)));
+  }, [contacts, selected, activeGroupId]);
 
   const handleDeleteGroup = async (e, groupId) => {
     e.stopPropagation();
@@ -355,6 +372,15 @@ const Broadcast = () => {
         </div>
       </div>
 
+      {activeGroupObj && (
+        <div className="rounded-xl border border-cyan-800/60 bg-cyan-950/40 p-3.5 text-xs text-cyan-200 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            📁 <strong>Active Group: "{activeGroupObj.name}"</strong> — Members: {activeGroupContacts.length > 0 ? activeGroupContacts.map((c) => c.name).join(', ') : 'None'}
+          </div>
+          <button onClick={() => setActiveGroupId(null)} className="text-[11px] text-slate-400 hover:text-white">✕ Dismiss Info</button>
+        </div>
+      )}
+
       {progress > 0 && (
         <div className="h-2 overflow-hidden rounded-full bg-slate-800">
           <div className="h-full rounded-full bg-cyan-500 transition-all duration-300" style={{ width: `${progress}%` }} />
@@ -362,8 +388,9 @@ const Broadcast = () => {
       )}
 
       <div className="rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
-        <div className="border-b border-slate-800 px-4 py-3 text-xs font-semibold text-slate-400">
-          Recipient Selection List ({filtered.length})
+        <div className="border-b border-slate-800 px-4 py-3 text-xs font-semibold text-slate-400 flex justify-between items-center">
+          <span>Recipient Selection List ({filtered.length})</span>
+          {selected.length > 0 && <span className="text-cyan-400 font-mono">{selected.length} Checked</span>}
         </div>
         <div className="max-h-80 overflow-auto divide-y divide-slate-800/60">
           {filtered.length === 0 ? (
@@ -374,20 +401,30 @@ const Broadcast = () => {
               </p>
             </div>
           ) : (
-            filtered.map((contact) => (
-              <label key={contact.id} className="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm hover:bg-slate-900/60 transition-colors">
-                <div>
-                  <span className="font-medium text-slate-200">{contact.name}</span>
-                  <span className="ml-2 text-xs text-slate-400">{contact.mobile} · {contact.city} ({contact.vehicleType})</span>
-                </div>
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-600 focus:ring-cyan-500"
-                  checked={selected.includes(contact.id)}
-                  onChange={() => toggle(contact.id)}
-                />
-              </label>
-            ))
+            filtered.map((contact) => {
+              const isChecked = selected.some((sId) => String(sId) === String(contact.id));
+              const isMemberOfActiveGroup = activeGroupId && isChecked;
+
+              return (
+                <label key={contact.id} className={`flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors ${isChecked ? 'bg-cyan-950/30' : 'hover:bg-slate-900/60'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-200">{contact.name}</span>
+                    <span className="text-xs text-slate-400">{contact.mobile} · {contact.city} ({contact.vehicleType})</span>
+                    {isMemberOfActiveGroup && (
+                      <span className="rounded bg-cyan-900/80 border border-cyan-700/60 px-2 py-0.5 text-[11px] font-semibold text-cyan-300">
+                        📁 {activeGroupObj?.name || 'Group'} Member
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-600 focus:ring-cyan-500"
+                    checked={isChecked}
+                    onChange={() => toggle(contact.id)}
+                  />
+                </label>
+              );
+            })
           )}
         </div>
       </div>
