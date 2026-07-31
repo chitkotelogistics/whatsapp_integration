@@ -38,16 +38,16 @@ const getConfig = (config = {}) => {
   return { API_BASE_URL, API_VERSION, PHONE_NUMBER_ID, ACCESS_TOKEN, MAX_RETRIES, QUEUE_DELAY_MS };
 };
 
-const buildLoadNotificationTemplate = (messageText = '', templateName = 'load_dispatch') => {
+const buildLoadNotificationTemplate = (messageText = '', templateName = 'load_notification') => {
   const text = String(messageText || '');
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
 
-  const fromMatch = text.match(/(?:From|FROM)\s*:\s*([^\n]+)/i);
-  const toMatch = text.match(/(?:To|TO)\s*:\s*([^\n]+)/i);
-  const weightMatch = text.match(/(?:Weight|WEIGHT)\s*:\s*([^\n]+)/i);
-  const vehicleMatch = text.match(/(?:Vehicle|VEHICLE)\s*:\s*([^\n]+)/i);
-  const freightMatch = text.match(/(?:Freight|FREIGHT)\s*:\s*([^\n]+)/i);
-  const contactMatch = text.match(/(?:Contact|CONTACT)\s*:\s*([^\n]+)/i);
+  const fromMatch = text.match(/(?:From|FROM|Pickup City)\s*:\s*([^\n]+)/i);
+  const toMatch = text.match(/(?:To|TO|Delivery City)\s*:\s*([^\n]+)/i);
+  const weightMatch = text.match(/(?:Weight|WEIGHT|Shipment Weight)\s*:\s*([^\n]+)/i);
+  const vehicleMatch = text.match(/(?:Vehicle|VEHICLE|Vehicle Type Required)\s*:\s*([^\n]+)/i);
+  const freightMatch = text.match(/(?:Freight|FREIGHT|Agreed Freight Rate)\s*:\s*([^\n]+)/i);
+  const contactMatch = text.match(/(?:Contact|CONTACT|Direct Contact Phone)\s*:\s*([^\n]+)/i);
   const phoneDigitsMatch = text.match(/\b(?:91)?[6-9]\d{9}\b/);
 
   let from = fromMatch ? fromMatch[1].trim() : 'Hyderabad';
@@ -64,7 +64,7 @@ const buildLoadNotificationTemplate = (messageText = '', templateName = 'load_di
   freight = freight.replace(/[^\w\s\.-]/gi, '').trim().slice(0, 20) || '42000';
   contact = contact.slice(-10) || '9390003955';
 
-  const name = templateName || 'load_dispatch';
+  const name = templateName || 'load_notification';
   return {
     name,
     language: { code: 'en' },
