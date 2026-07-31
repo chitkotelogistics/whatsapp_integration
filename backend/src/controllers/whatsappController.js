@@ -14,7 +14,7 @@ const normalizePhone = (value = '') => {
     cleaned = cleaned.slice(2);
   }
 
-  if (cleaned.length === 12 && cleaned.startsWith('91')) {
+  if (cleaned.length === 12 && cleaned.startsWith('91') && /^[6-9]/.test(cleaned.slice(2))) {
     return cleaned;
   }
 
@@ -26,7 +26,7 @@ const normalizePhone = (value = '') => {
     return `91${cleaned.slice(1)}`;
   }
 
-  return cleaned;
+  return '';
 };
 
 const getContactsByIds = async (contactIds) => {
@@ -38,47 +38,41 @@ const getContactsByIds = async (contactIds) => {
   const rawItems = Array.from(strIds);
 
   const contacts = [];
+  const fallbackContacts = readFallbackContacts();
 
-  const numericDbIds = contactIds
-    .map((id) => Number(id))
-    .filter((num) => !isNaN(num) && num > 0 && num <= 2147483647);
-
-  if (numericDbIds.length > 0) {
-    try {
-      const [rows] = await db.query('SELECT * FROM contacts WHERE id IN (?)', [numericDbIds]);
-      contacts.push(...rows);
-    } catch (error) {
-      // ignore DB errors
-    }
-  }
-
-  const mobileCandidates = rawItems.map(normalizePhone).filter(Boolean);
-  if (mobileCandidates.length > 0) {
-    try {
-      const [rows] = await db.query('SELECT * FROM contacts WHERE mobile IN (?)', [mobileCandidates]);
-      for (const r of rows) {
-        if (!contacts.some((c) => String(c.id) === String(r.id))) {
-          contacts.push(r);
+  // 1. Try DB lookup by numeric ID or mobile
+  try {
+    const [dbRows] = await db.query('SELECT * FROM contacts');
+    for (const row of dbRows) {
+      const rowIdStr = String(row.id);
+      const rowMobNorm = normalizePhone(row.mobile);
+      if (strIds.has(rowIdStr) || (rowMobNorm && strIds.has(rowMobNorm))) {
+        if (!contacts.some((c) => String(c.id) === rowIdStr)) {
+          contacts.push(row);
         }
       }
-    } catch (e) {
-      // ignore DB errors
+    }
+  } catch (dbErr) {
+    // DB error ignore
+  }
+
+  // 2. Try Fallback JSON store lookup
+  for (const fb of fallbackContacts) {
+    const fbIdStr = String(fb.id);
+    const fbMobNorm = normalizePhone(fb.mobile);
+    if (strIds.has(fbIdStr) || (fbMobNorm && strIds.has(fbMobNorm))) {
+      if (!contacts.some((c) => String(c.id) === fbIdStr || normalizePhone(c.mobile) === fbMobNorm)) {
+        contacts.push(fb);
+      }
     }
   }
 
-  const fallbackContacts = readFallbackContacts();
-  const existingIds = new Set(contacts.map((contact) => String(contact.id)));
-  const fallbackMatches = fallbackContacts.filter(
-    (contact) => (strIds.has(String(contact.id)) || strIds.has(String(contact.mobile))) && !existingIds.has(String(contact.id))
-  );
-
-  const foundContacts = contacts.concat(fallbackMatches);
-  const foundMobiles = new Set(foundContacts.map((c) => normalizePhone(c.mobile)));
-
+  // 3. For any remaining item that is an explicit raw mobile number (not an ID)
+  const foundMobiles = new Set(contacts.map((c) => normalizePhone(c.mobile)).filter(Boolean));
   for (const item of rawItems) {
     const norm = normalizePhone(item);
     if (norm && !foundMobiles.has(norm)) {
-      foundContacts.push({
+      contacts.push({
         id: item,
         name: `Direct Recipient (${norm.slice(-10)})`,
         mobile: norm,
@@ -88,10 +82,10 @@ const getContactsByIds = async (contactIds) => {
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log('getContactsByIds resolved:', { rawItems, foundCount: foundContacts.length, numbers: foundContacts.map((c) => c.mobile) });
+    console.log('getContactsByIds resolved:', { rawItems, foundCount: contacts.length, numbers: contacts.map((c) => c.mobile) });
   }
 
-  return foundContacts;
+  return contacts;
 };
 
 const persistMessageLog = async (payload) => {
