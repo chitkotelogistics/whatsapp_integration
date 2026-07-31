@@ -123,20 +123,56 @@ const persistMessageLog = async (payload) => {
 };
 
 const getLoads = async (_req, res) => {
+  const fallbackLoads = readFallbackLoads();
   try {
-    const [rows] = await db.query('SELECT * FROM loads ORDER BY id DESC LIMIT 20');
-    res.json(rows);
+    const [rows] = await db.query('SELECT * FROM loads ORDER BY id DESC LIMIT 50');
+    const existingKeys = new Set(rows.map((r) => String(r.id || r.load_id || r.loadId)));
+    const merged = [...rows];
+    for (const load of fallbackLoads) {
+      const key = String(load.id || load.loadId);
+      if (!existingKeys.has(key)) {
+        existingKeys.add(key);
+        merged.push(load);
+      }
+    }
+    res.json(merged);
   } catch (error) {
-    const fallbackLoads = readFallbackLoads();
-    res.json(fallbackLoads.slice(0, 20));
+    res.json(fallbackLoads.slice(0, 50));
   }
 };
 
 const createLoad = async (req, res) => {
-  try {
-    const loadId = generateLoadId();
-    const messageBody = formatWhatsAppMessage({ ...req.body, loadId });
+  const loadId = generateLoadId();
+  const messageBody = formatWhatsAppMessage({ ...req.body, loadId });
 
+  const loadObj = {
+    id: Date.now(),
+    loadId,
+    message: messageBody,
+    message_body: messageBody,
+    from: req.body.from,
+    from_city: req.body.from,
+    to: req.body.to,
+    to_city: req.body.to,
+    material: req.body.material,
+    weight: req.body.weight,
+    vehicleType: req.body.vehicleType,
+    vehicle_type: req.body.vehicleType,
+    loadingDate: req.body.loadingDate,
+    loading_date: req.body.loadingDate,
+    freight: req.body.freight,
+    contactPerson: req.body.contactPerson,
+    contact_person: req.body.contactPerson,
+    contactNumber: req.body.contactNumber,
+    contact_number: req.body.contactNumber,
+    created_at: new Date().toISOString(),
+    fallback: true,
+  };
+
+  const fallbackLoads = readFallbackLoads();
+  writeFallbackLoads([loadObj, ...fallbackLoads]);
+
+  try {
     const [result] = await db.execute(
       'INSERT INTO loads (from_city, to_city, material, weight, vehicle_type, loading_date, freight, contact_person, contact_number, load_id, message_body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
@@ -153,31 +189,14 @@ const createLoad = async (req, res) => {
         messageBody,
       ]
     );
-
-    res.status(201).json({ success: true, loadId, message: messageBody, loadIdRow: result.insertId });
+    if (result && result.insertId) {
+      loadObj.id = result.insertId;
+    }
   } catch (error) {
-    const fallbackLoads = readFallbackLoads();
-    const fallbackLoadId = generateLoadId();
-    const fallbackPayload = {
-      id: Date.now(),
-      loadId: fallbackLoadId,
-      message: formatWhatsAppMessage({ ...req.body, loadId: fallbackLoadId }),
-      from: req.body.from,
-      to: req.body.to,
-      material: req.body.material,
-      weight: req.body.weight,
-      vehicleType: req.body.vehicleType,
-      loadingDate: req.body.loadingDate,
-      freight: req.body.freight,
-      contactPerson: req.body.contactPerson,
-      contactNumber: req.body.contactNumber,
-      created_at: new Date().toISOString(),
-      fallback: true,
-    };
-
-    writeFallbackLoads([fallbackPayload, ...fallbackLoads]);
-    res.status(201).json({ success: true, loadId: fallbackPayload.loadId, message: fallbackPayload.message, fallback: true });
+    // DB write optional
   }
+
+  res.status(201).json({ success: true, loadId, message: messageBody, load: loadObj });
 };
 
 const updateLoad = async (req, res) => {
