@@ -103,8 +103,8 @@ const updateContact = async (req, res) => {
 
   try {
     await db.execute(
-      'UPDATE contacts SET name = ?, mobile = ?, company = ?, city = ?, state = ?, vehicle_type = ? WHERE id = ?',
-      [name, mobile, company, city, state, vehicleType, id]
+      'UPDATE contacts SET name = ?, mobile = ?, company = ?, city = ?, state = ?, vehicle_type = ? WHERE id = ? OR mobile = ?',
+      [name, mobile, company, city, state, vehicleType, id, mobile]
     );
   } catch (error) {
     // ignore DB write error
@@ -112,7 +112,7 @@ const updateContact = async (req, res) => {
 
   const fallbackContacts = readFallbackContacts();
   const nextContacts = fallbackContacts.map((contact) =>
-    String(contact.id) === String(id) || normalizePhone(contact.mobile) === mobile
+    String(contact.id) === String(id) || (mobile && normalizePhone(contact.mobile) === mobile)
       ? { ...contact, name: name || contact.name, mobile: mobile || contact.mobile, company, city, state, vehicle_type: vehicleType }
       : contact
   );
@@ -181,27 +181,33 @@ const importContacts = async (req, res) => {
 
 const deleteContact = async (req, res) => {
   const { id } = req.params;
+  const idStr = String(id).trim();
+
+  let mobile = null;
+  try {
+    const [rows] = await db.query('SELECT mobile FROM contacts WHERE id = ?', [id]);
+    if (rows.length > 0) mobile = rows[0].mobile;
+  } catch (e) {}
 
   const fallbackContacts = readFallbackContacts();
-  const targetContact = fallbackContacts.find((c) => String(c.id) === String(id));
-  const mobile = targetContact ? targetContact.mobile : null;
+  const targetFallback = fallbackContacts.find((c) => String(c.id) === idStr);
+  if (!mobile && targetFallback) mobile = targetFallback.mobile;
+
+  const normMob = mobile ? normalizePhone(mobile) : null;
 
   try {
-    const numId = Number(id);
-    if (Number.isInteger(numId) && numId <= 2147483647) {
-      if (mobile) {
-        await db.execute('DELETE FROM contacts WHERE id = ? OR mobile = ?', [numId, mobile]);
-      } else {
-        await db.execute('DELETE FROM contacts WHERE id = ?', [numId]);
-      }
-    } else if (mobile) {
-      await db.execute('DELETE FROM contacts WHERE mobile = ?', [mobile]);
+    if (normMob) {
+      await db.execute('DELETE FROM contacts WHERE id = ? OR mobile = ? OR mobile = ?', [id, mobile, normMob]);
+    } else {
+      await db.execute('DELETE FROM contacts WHERE id = ?', [id]);
     }
   } catch (error) {
     // DB delete warning handled via fileStore sync
   }
 
-  const nextContacts = fallbackContacts.filter((c) => String(c.id) !== String(id) && (!mobile || c.mobile !== mobile));
+  const nextContacts = fallbackContacts.filter(
+    (c) => String(c.id) !== idStr && (!normMob || normalizePhone(c.mobile) !== normMob)
+  );
   writeFallbackContacts(nextContacts);
 
   res.json({ success: true, id });
@@ -214,27 +220,43 @@ const deleteContactsBulk = async (req, res) => {
     return res.status(400).json({ success: false, error: 'No contact IDs provided for bulk delete' });
   }
 
-  const strIds = new Set(ids.map((id) => String(id)));
-  const fallbackContacts = readFallbackContacts();
-  const targetContacts = fallbackContacts.filter((c) => strIds.has(String(c.id)));
-  const targetMobiles = targetContacts.map((c) => c.mobile).filter(Boolean);
+  const strIds = new Set(ids.map((id) => String(id).trim()));
 
-  const numericDbIds = ids
-    .filter((id) => Number.isInteger(Number(id)) && Number(id) <= 2147483647)
-    .map((id) => Number(id));
+  const targetMobiles = new Set();
+  const fallbackContacts = readFallbackContacts();
+  for (const c of fallbackContacts) {
+    if (strIds.has(String(c.id))) {
+      const norm = normalizePhone(c.mobile);
+      if (norm) targetMobiles.add(norm);
+    }
+  }
 
   try {
-    if (numericDbIds.length > 0) {
-      await db.query('DELETE FROM contacts WHERE id IN (?)', [numericDbIds]);
+    const [rows] = await db.query('SELECT id, mobile FROM contacts');
+    for (const r of rows) {
+      if (strIds.has(String(r.id))) {
+        const norm = normalizePhone(r.mobile);
+        if (norm) targetMobiles.add(norm);
+      }
     }
-    if (targetMobiles.length > 0) {
-      await db.query('DELETE FROM contacts WHERE mobile IN (?)', [targetMobiles]);
+  } catch (e) {}
+
+  try {
+    for (const singleId of ids) {
+      await db.execute('DELETE FROM contacts WHERE id = ?', [singleId]);
+    }
+    if (targetMobiles.size > 0) {
+      await db.query('DELETE FROM contacts WHERE mobile IN (?)', [Array.from(targetMobiles)]);
     }
   } catch (error) {
     // DB delete warning handled via fileStore sync
   }
 
-  const nextContacts = fallbackContacts.filter((c) => !strIds.has(String(c.id)) && (!c.mobile || !targetMobiles.includes(c.mobile)));
+  const nextContacts = fallbackContacts.filter((c) => {
+    const isIdMatch = strIds.has(String(c.id));
+    const isMobMatch = c.mobile && targetMobiles.has(normalizePhone(c.mobile));
+    return !isIdMatch && !isMobMatch;
+  });
   writeFallbackContacts(nextContacts);
 
   res.json({ success: true, deleted: ids.length });
