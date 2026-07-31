@@ -538,6 +538,20 @@ const getMessageLogs = async (req, res) => {
   }
 };
 
+const clearAllMessageHistory = async (_req, res) => {
+  try {
+    await db.execute('DELETE FROM message_logs');
+    await db.execute('DELETE FROM webhook_events');
+    await db.execute('DELETE FROM inbound_messages');
+  } catch (e) {
+    // DB error ignore
+  }
+  memoryLogs.length = 0;
+  writeFallbackLogs([]);
+  writeFallbackInbound([]);
+  res.json({ success: true, message: 'Message history cleared' });
+};
+
 const retryFailedMessages = async (req, res) => {
   try {
     const { id, ids } = req.body || {};
@@ -814,6 +828,7 @@ module.exports = {
   getSettings,
   saveSettings,
   getMessageLogs,
+  clearAllMessageHistory,
   retryFailedMessages,
   webhook,
   validateContactsEndpoint,

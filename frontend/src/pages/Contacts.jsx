@@ -308,68 +308,109 @@ const Contacts = () => {
     }
   };
 
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6 rounded-xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
         <div>
-          <h2 className="text-xl font-semibold">Contacts</h2>
-          <p className="text-sm text-slate-400">Total: {contacts.length} | Filtered: {filteredContacts.length} | Selected: {selectedIds.length}</p>
+          <h2 className="text-xl font-semibold text-white">Contacts Database</h2>
+          <p className="text-sm text-slate-400">Total: <strong>{contacts.length}</strong> | Filtered: <strong>{filteredContacts.length}</strong> | Selected: <strong>{selectedIds.length}</strong></p>
         </div>
         <div className="flex flex-wrap gap-2">
           {selectedIds.length > 0 && (
-            <button className="rounded bg-rose-600 px-4 py-2 text-sm font-medium" onClick={handleBulkDelete}>
+            <button className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500" onClick={handleBulkDelete}>
               Delete Selected ({selectedIds.length})
             </button>
           )}
-          <button className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium" onClick={() => handleExport('contacts.xlsx')}>
+          <button className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500" onClick={() => setShowAddForm(!showAddForm)}>
+            {showAddForm ? '✕ Close Form' : '+ Add Contact'}
+          </button>
+          <button className="rounded-lg bg-slate-800 border border-slate-700 px-3.5 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700" onClick={() => setShowBulkImport(!showBulkImport)}>
+            📥 Bulk Import {showBulkImport ? '▲' : '▼'}
+          </button>
+          <button className="rounded-lg bg-emerald-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-600" onClick={() => handleExport('contacts.xlsx')}>
             Export Excel
           </button>
-          <button className="rounded bg-teal-600 px-4 py-2 text-sm font-medium" onClick={() => handleExport('contacts.csv')}>
+          <button className="rounded-lg bg-teal-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-teal-600" onClick={() => handleExport('contacts.csv')}>
             Export CSV
           </button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-4 grid gap-3 md:grid-cols-2">
-        <input className="rounded border border-slate-700 bg-slate-950 p-3" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input className="rounded border border-slate-700 bg-slate-950 p-3" placeholder="Mobile" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
-        <input className="rounded border border-slate-700 bg-slate-950 p-3" placeholder="Company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
-        <input className="rounded border border-slate-700 bg-slate-950 p-3" placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-        <input className="rounded border border-slate-700 bg-slate-950 p-3" placeholder="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
-        <input className="rounded border border-slate-700 bg-slate-950 p-3" placeholder="Vehicle Type" value={form.vehicleType} onChange={(e) => setForm({ ...form, vehicleType: e.target.value })} />
-        <div className="flex gap-3 md:col-span-2">
-          <button className="rounded bg-cyan-600 px-4 py-2" type="submit">{editingId ? 'Update Contact' : 'Add Contact'}</button>
-          {editingId ? <button className="rounded bg-slate-700 px-4 py-2" type="button" onClick={resetForm}>Cancel</button> : null}
+      {(showAddForm || editingId) && (
+        <form onSubmit={handleSubmit} className="rounded-xl border border-cyan-900/40 bg-slate-950 p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <h3 className="text-sm font-semibold text-cyan-300">{editingId ? 'Edit Contact' : 'Create New Contact'}</h3>
+            <button type="button" onClick={resetForm} className="text-xs text-slate-400 hover:text-white">Cancel</button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="Mobile *" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} required />
+            <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="Company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
+            <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+            <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+            <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="Vehicle Type" value={form.vehicleType} onChange={(e) => setForm({ ...form, vehicleType: e.target.value })} />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button className="rounded-lg bg-cyan-600 px-5 py-2 text-sm font-semibold text-white hover:bg-cyan-500" type="submit">
+              {editingId ? 'Save Changes' : 'Save Contact'}
+            </button>
+            <button className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700" type="button" onClick={resetForm}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {showBulkImport && (
+        <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <p className="text-sm font-semibold text-slate-200">Bulk Import via CSV / Excel Spreadsheet</p>
+            <button onClick={() => setShowBulkImport(false)} className="text-xs text-slate-400 hover:text-white">✕ Hide</button>
+          </div>
+          <textarea className="h-24 w-full rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs font-mono" value={csvText} onChange={(e) => setCsvText(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-3">
+            <button className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500" onClick={handleCsvImport}>
+              Import Spreadsheet Contacts
+            </button>
+            <label className="cursor-pointer rounded-lg bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700">
+              Upload CSV / XLSX File
+              <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileImport} />
+            </label>
+            <span className="text-xs font-mono text-cyan-400">{selectedFileName}</span>
+          </div>
         </div>
-      </form>
+      )}
 
       {inboundList.length > 0 && (
-        <div className="mt-6 rounded-xl border border-indigo-900/60 bg-indigo-950/40 p-4">
+        <div className="rounded-xl border border-indigo-900/60 bg-indigo-950/40 p-4">
           <div className="flex items-center justify-between border-b border-indigo-800/40 pb-2 mb-3">
-            <h3 className="text-sm font-semibold text-indigo-300">📬 Driver Inquiries & Incoming WhatsApp Messages ({inboundList.length})</h3>
-            <span className="text-xs text-indigo-400">Review & Save as Verified Contacts</span>
+            <h3 className="text-xs font-semibold text-indigo-300">📬 Incoming WhatsApp Driver Messages ({inboundList.length})</h3>
+            <span className="text-xs text-indigo-400">Save directly as Verified Contacts</span>
           </div>
-          <div className="grid gap-2 max-h-48 overflow-auto">
+          <div className="grid gap-2 max-h-36 overflow-auto">
             {inboundList.map((item) => (
-              <div key={item.id} className="flex flex-wrap items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-2.5 text-xs">
+              <div key={item.id} className="flex flex-wrap items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs">
                 <div>
                   <span className="font-semibold text-white">{item.sender_name || item.mobile}</span>
                   <span className="ml-2 font-mono text-cyan-400">{item.mobile}</span>
-                  <p className="mt-0.5 text-slate-400">"{item.message}" · <span className="text-slate-500">{new Date(item.created_at).toLocaleTimeString()}</span></p>
+                  <span className="ml-2 text-slate-400">"{item.message}"</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div>
                   {item.is_saved ? (
-                    <span className="rounded bg-emerald-950 border border-emerald-800 px-2 py-1 text-emerald-300">✓ Saved Contact</span>
+                    <span className="rounded bg-emerald-950 border border-emerald-800 px-2 py-0.5 text-emerald-300 text-[11px]">✓ Saved</span>
                   ) : (
                     <button
-                      className="rounded bg-indigo-600 hover:bg-indigo-500 px-3 py-1 font-semibold text-white"
+                      className="rounded bg-indigo-600 hover:bg-indigo-500 px-2.5 py-1 text-[11px] font-semibold text-white"
                       onClick={async () => {
                         await saveInboundAsContact({ id: item.id, mobile: item.mobile, name: item.sender_name || `Driver ${item.mobile.slice(-4)}` });
                         await loadContacts();
                         await loadInbound();
                       }}
                     >
-                      + Save to Contacts
+                      + Save Contact
                     </button>
                   )}
                 </div>
@@ -379,92 +420,118 @@ const Contacts = () => {
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      {/* SEARCH BAR & FILTERS */}
+      <div className="grid gap-3 md:grid-cols-3 bg-slate-950 p-3 rounded-xl border border-slate-800">
         <input
-          className="rounded border border-slate-700 bg-slate-950 p-3 text-sm"
-          placeholder="Search by name, phone, company..."
+          className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+          placeholder="🔍 Type to search name, mobile, city, vehicle..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <select
-          className="rounded border border-slate-700 bg-slate-950 p-3 text-sm"
+          className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm focus:border-cyan-500 focus:outline-none"
           value={filterCity}
           onChange={(e) => setFilterCity(e.target.value)}
         >
-          <option value="">All Cities</option>
+          <option value="">All Cities ({uniqueCities.length})</option>
           {uniqueCities.map((city) => (
             <option key={city} value={city}>{city}</option>
           ))}
         </select>
         <select
-          className="rounded border border-slate-700 bg-slate-950 p-3 text-sm"
+          className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm focus:border-cyan-500 focus:outline-none"
           value={filterVehicle}
           onChange={(e) => setFilterVehicle(e.target.value)}
         >
-          <option value="">All Vehicle Types</option>
+          <option value="">All Vehicle Types ({uniqueVehicles.length})</option>
           {uniqueVehicles.map((v) => (
             <option key={v} value={v}>{v}</option>
           ))}
         </select>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        <button className="rounded bg-slate-700 px-4 py-2" onClick={handleValidate}>Validate Contacts</button>
-        <button className="rounded bg-cyan-600 px-4 py-2" onClick={handleTestSend}>Send to Selected</button>
-        <textarea className="min-w-[280px] rounded border border-slate-700 bg-slate-950 p-3" rows="3" value={messageText} onChange={(e) => setMessageText(e.target.value)} />
-      </div>
-
-      <div className="mt-4 rounded border border-slate-800 bg-slate-950 p-4">
-        <p className="mb-2 text-sm font-semibold">Bulk import via CSV or Excel</p>
-        <textarea className="min-h-[150px] w-full rounded border border-slate-700 bg-slate-950 p-3" value={csvText} onChange={(e) => setCsvText(e.target.value)} />
-        <div className="mt-3 flex flex-wrap gap-3">
-          <button className="rounded bg-cyan-600 px-4 py-2" onClick={handleCsvImport}>Import Spreadsheet Contacts</button>
-          <label className="cursor-pointer rounded bg-slate-700 px-4 py-2">
-            Upload CSV / XLSX File
-            <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileImport} />
-          </label>
-          <span className="rounded border border-slate-700 px-3 py-2 text-xs text-slate-300">{selectedFileName}</span>
+      {/* CONTACTS LIST TABLE — IMMEDIATELY BELOW SEARCH BAR */}
+      <div className="rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
+        <div className="border-b border-slate-800 px-4 py-3 text-xs font-semibold text-slate-400 flex justify-between items-center">
+          <span>Search Results ({filteredContacts.length})</span>
+          {selectedIds.length > 0 && <span className="text-cyan-400">{selectedIds.length} Selected</span>}
+        </div>
+        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-900/90 text-slate-400 sticky top-0 z-10">
+              <tr className="text-left text-xs uppercase tracking-wider">
+                <th className="p-3">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-600 focus:ring-cyan-500"
+                    checked={filteredContacts.length > 0 && selectedIds.length === filteredContacts.length}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
+                <th className="p-3">Name</th>
+                <th className="p-3">Mobile</th>
+                <th className="p-3">Company</th>
+                <th className="p-3">City</th>
+                <th className="p-3">State</th>
+                <th className="p-3">Vehicle</th>
+                <th className="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {filteredContacts.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-sm text-slate-500">
+                    No contacts found matching "{searchQuery}".
+                  </td>
+                </tr>
+              ) : (
+                filteredContacts.map((contact) => (
+                  <tr key={contact.id} className="hover:bg-slate-900/60 transition-colors">
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-600 focus:ring-cyan-500"
+                        checked={selectedIds.includes(contact.id)}
+                        onChange={() => toggleSelect(contact.id)}
+                      />
+                    </td>
+                    <td className="p-3 font-semibold text-slate-100">{contact.name}</td>
+                    <td className="p-3 font-mono text-cyan-400">{contact.mobile}</td>
+                    <td className="p-3 text-slate-300">{contact.company || '—'}</td>
+                    <td className="p-3 text-slate-300">{contact.city || '—'}</td>
+                    <td className="p-3 text-slate-300">{contact.state || '—'}</td>
+                    <td className="p-3 text-slate-300">{contact.vehicle_type || '—'}</td>
+                    <td className="p-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button className="rounded-lg bg-slate-800 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white" onClick={() => handleEdit(contact)}>Edit</button>
+                        <button className="rounded-lg bg-rose-950 border border-rose-800/60 px-3 py-1 text-xs font-medium text-rose-300 hover:bg-rose-900" onClick={() => handleDelete(contact.id)}>Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div className="mt-6 overflow-auto">
-        <table className="min-w-full text-sm">
-          <thead>
-            <tr className="text-left text-slate-400">
-              <th className="p-2">
-                <input
-                  type="checkbox"
-                  checked={filteredContacts.length > 0 && selectedIds.length === filteredContacts.length}
-                  onChange={toggleSelectAll}
-                />
-              </th>
-              <th className="p-2">Name</th>
-              <th className="p-2">Mobile</th>
-              <th className="p-2">Company</th>
-              <th className="p-2">City</th>
-              <th className="p-2">State</th>
-              <th className="p-2">Vehicle</th>
-              <th className="p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredContacts.map((contact) => (
-              <tr key={contact.id} className="border-t border-slate-800">
-                <td className="p-2"><input type="checkbox" checked={selectedIds.includes(contact.id)} onChange={() => toggleSelect(contact.id)} /></td>
-                <td className="p-2">{contact.name}</td>
-                <td className="p-2">{contact.mobile}</td>
-                <td className="p-2">{contact.company || '—'}</td>
-                <td className="p-2">{contact.city}</td>
-                <td className="p-2">{contact.state}</td>
-                <td className="p-2">{contact.vehicle_type}</td>
-                <td className="p-2 flex gap-2">
-                  <button className="rounded bg-slate-700 px-3 py-1 text-xs" onClick={() => handleEdit(contact)}>Edit</button>
-                  <button className="rounded bg-rose-700 px-3 py-1 text-xs" onClick={() => handleDelete(contact.id)}>Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* COMPACT UTILITY TOOLBAR (Validate & Quick Test Send) */}
+      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+        <p className="text-xs font-semibold text-slate-400">🛠️ Quick Contact Tools (Validation & Direct Test Send)</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="rounded-lg bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700" onClick={handleValidate}>
+            Validate Contacts
+          </button>
+          <input
+            className="flex-1 min-w-[240px] rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs text-slate-100 font-mono focus:border-cyan-500 focus:outline-none"
+            placeholder="Test message..."
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+          />
+          <button className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500" onClick={handleTestSend}>
+            Send to Selected ({selectedIds.length || contacts.length})
+          </button>
+        </div>
       </div>
     </div>
   );

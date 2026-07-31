@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { broadcast, createGroup, getContacts, getGroups, getGroupContacts, getLoads } from '../services/api';
+import { broadcast, createGroup, deleteGroup, clearAllGroups, getContacts, getGroups, getGroupContacts, getLoads } from '../services/api';
 
 const formatLoadForBroadcast = (l) => {
   if (!l) return '';
@@ -39,6 +39,7 @@ const Broadcast = () => {
   const [loads, setLoads] = useState([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
+  const [activeGroupId, setActiveGroupId] = useState(null);
   const [selectedLoadId, setSelectedLoadId] = useState('');
   const [message, setMessage] = useState(defaultBroadcastMessage);
   const [scheduledAt, setScheduledAt] = useState('');
@@ -62,7 +63,7 @@ const Broadcast = () => {
       vehicleType: item.vehicle_type || 'N/A',
     }));
     setContacts(loaded);
-    setSelected(loaded.map((c) => c.id));
+    setSelected([]);
   };
 
   const loadGroups = async () => {
@@ -99,14 +100,17 @@ const Broadcast = () => {
 
   const toggle = (id) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+    setActiveGroupId(null);
   };
 
   const selectAll = () => {
     setSelected(filtered.map((item) => item.id));
+    setActiveGroupId(null);
   };
 
   const clearSelection = () => {
     setSelected([]);
+    setActiveGroupId(null);
   };
 
   const processBroadcastResponse = (data) => {
@@ -164,16 +168,40 @@ const Broadcast = () => {
       return;
     }
 
-    await createGroup({ name: groupName, contactIds: selected });
+    const createdRes = await createGroup({ name: groupName, contactIds: selected });
+    const newGroupId = createdRes.data?.id;
     setGroupName('');
     await loadGroups();
-    showToast(`Broadcast group "${groupName}" saved!`);
+    if (newGroupId) setActiveGroupId(newGroupId);
+    showToast(`📁 Broadcast group "${groupName}" saved with ${selected.length} contact(s)!`);
   };
 
   const handleLoadGroup = async (groupId) => {
     const res = await getGroupContacts(groupId);
-    setSelected(res.data.contactIds || []);
-    showToast(`Loaded group contacts`);
+    const contactIds = res.data.contactIds || [];
+    setSelected(contactIds);
+    setActiveGroupId(groupId);
+    const grp = groups.find((g) => String(g.id) === String(groupId));
+    showToast(`📁 Group "${grp?.name || 'Selected'}" Loaded: ${contactIds.length} contact(s) selected`);
+  };
+
+  const handleDeleteGroup = async (e, groupId) => {
+    e.stopPropagation();
+    if (!window.confirm('Delete this broadcast group?')) return;
+    await deleteGroup(groupId);
+    if (String(activeGroupId) === String(groupId)) {
+      setActiveGroupId(null);
+    }
+    await loadGroups();
+    showToast('Broadcast group deleted');
+  };
+
+  const handleClearAllGroups = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL broadcast groups?')) return;
+    await clearAllGroups();
+    setActiveGroupId(null);
+    await loadGroups();
+    showToast('All broadcast groups deleted');
   };
 
   return (
@@ -286,20 +314,42 @@ const Broadcast = () => {
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-          <p className="mb-2.5 text-xs font-semibold text-slate-300">Saved Broadcast Groups ({groups.length})</p>
-          <div className="flex flex-wrap gap-2 max-h-24 overflow-auto">
+          <div className="flex items-center justify-between mb-2.5">
+            <p className="text-xs font-semibold text-slate-300">Saved Broadcast Groups ({groups.length})</p>
+            {groups.length > 0 && (
+              <button onClick={handleClearAllGroups} className="text-[11px] text-rose-400 hover:text-rose-300 font-medium">
+                Clear All Groups 🗑️
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 max-h-28 overflow-auto">
             {groups.length === 0 ? (
-              <span className="text-xs text-slate-500">No saved groups created yet.</span>
+              <span className="text-xs text-slate-500">No saved groups created yet. Create a group above!</span>
             ) : (
-              groups.map((group) => (
-                <button
-                  key={group.id}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-cyan-500 hover:text-cyan-400"
-                  onClick={() => handleLoadGroup(group.id)}
-                >
-                  📁 {group.name}
-                </button>
-              ))
+              groups.map((group) => {
+                const isActive = String(activeGroupId) === String(group.id);
+                return (
+                  <div
+                    key={group.id}
+                    className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                      isActive
+                        ? 'border-cyan-400 bg-cyan-950 text-cyan-200 ring-2 ring-cyan-500/50 shadow-md shadow-cyan-950'
+                        : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500'
+                    }`}
+                    onClick={() => handleLoadGroup(group.id)}
+                  >
+                    <span>📁 {group.name}</span>
+                    {isActive && <span className="ml-1.5 text-cyan-400 font-bold">✓ Selected</span>}
+                    <button
+                      className="ml-2 text-slate-500 hover:text-rose-400 font-bold"
+                      onClick={(e) => handleDeleteGroup(e, group.id)}
+                      title="Delete Group"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

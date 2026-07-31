@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getLogs, getWebhookEvents, retryFailed } from '../services/api';
+import { clearAllLogs, getLogs, getWebhookEvents, retryFailed } from '../services/api';
 
 const getStatusBadge = (status = '') => {
   const s = String(status).toLowerCase();
@@ -84,6 +84,17 @@ const MessageHistory = () => {
     }
   };
 
+  const handleClearAllHistory = async () => {
+    if (!window.confirm('Are you sure you want to clear ALL message history logs?')) return;
+    try {
+      await clearAllLogs();
+      await loadData();
+      showToast('All message history logs cleared!');
+    } catch (err) {
+      showToast(`Clear failed: ${err.message}`, 'error');
+    }
+  };
+
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
       const mobileMatch = (log.mobile || '').includes(search);
@@ -121,11 +132,18 @@ const MessageHistory = () => {
           <h2 className="text-xl font-semibold text-white">WhatsApp Message History & Delivery Diagnostics</h2>
           <p className="text-sm text-slate-400">Real-time status tracking, Meta failure diagnostics, and customer incoming messages.</p>
         </div>
-        {failedCount > 0 && (
-          <button className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500 shadow-md shadow-rose-950" onClick={handleRetryAllFailed}>
-            Retry All Failed ({failedCount})
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {failedCount > 0 && (
+            <button className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500 shadow-md shadow-rose-950" onClick={handleRetryAllFailed}>
+              Retry All Failed ({failedCount})
+            </button>
+          )}
+          {logs.length > 0 && (
+            <button className="rounded-lg bg-rose-950 border border-rose-800/80 px-3.5 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-900" onClick={handleClearAllHistory}>
+              Clear History 🗑️
+            </button>
+          )}
+        </div>
       </div>
 
       {toast && (
