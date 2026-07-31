@@ -1,0 +1,34 @@
+const express = require('express');
+const router = express.Router();
+const { getLoads, createLoad, updateLoad, deleteLoad, broadcastLoads, getSettings, saveSettings, getMessageLogs, retryFailedMessages, webhook, validateContactsEndpoint, sendTestMessage, getTemplatesEndpoint, getWebhookEvents, getInboundMessages, saveInboundAsContact } = require('../controllers/whatsappController');
+const { listContacts, createContact, updateContact, importContacts, deleteContact, deleteContactsBulk } = require('../controllers/contactController');
+const { listGroups, createGroup, getGroupContacts } = require('../controllers/groupController');
+
+router.get('/loads', getLoads);
+router.post('/loads', createLoad);
+router.put('/loads/:id', updateLoad);
+router.delete('/loads/:id', deleteLoad);
+router.post('/broadcast', broadcastLoads);
+router.post('/validate-contacts', validateContactsEndpoint);
+router.post('/test-message', sendTestMessage);
+router.get('/templates', getTemplatesEndpoint);
+router.get('/settings', getSettings);
+router.post('/settings', saveSettings);
+router.get('/message-logs', getMessageLogs);
+router.get('/webhook-events', getWebhookEvents);
+router.get('/inbound-messages', getInboundMessages);
+router.post('/inbound-messages/save-contact', saveInboundAsContact);
+router.post('/retry-failed', retryFailedMessages);
+router.get('/contacts', listContacts);
+router.post('/contacts', createContact);
+router.post('/contacts/import', importContacts);
+router.put('/contacts/:id', updateContact);
+router.delete('/contacts/:id', deleteContact);
+router.post('/contacts/delete-bulk', deleteContactsBulk);
+router.get('/groups', listGroups);
+router.post('/groups', createGroup);
+router.get('/groups/:id/contacts', getGroupContacts);
+router.get('/webhook', webhook);
+router.post('/webhook', webhook);
+
+module.exports = router;

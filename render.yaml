@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: chitkote-whatsapp-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: WHATSAPP_VERIFY_TOKEN
+        value: chitkote_webhook_secret_123

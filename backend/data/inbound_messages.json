@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1785429591554,
+    "mobile": "919730361798",
+    "message": "Hi",
+    "sender_name": "Prashant",
+    "is_saved": 1,
+    "created_at": "2026-07-30T16:39:51.554Z"
+  },
+  {
+    "id": 1785429577018,
+    "mobile": "919730361798",
+    "message": "Hi",
+    "sender_name": "Prashant",
+    "is_saved": 1,
+    "created_at": "2026-07-30T16:39:37.018Z"
+  },
+  {
+    "id": 1785356941651,
+    "mobile": "918329747902",
+    "message": "Hi",
+    "sender_name": "Prashant",
+    "is_saved": 0,
+    "created_at": "2026-07-29T20:29:01.651Z"
+  },
+  {
+    "id": 1785356874467,
+    "mobile": "919730361798",
+    "message": "Hi",
+    "sender_name": "Prashant",
+    "is_saved": 1,
+    "created_at": "2026-07-29T20:27:54.467Z"
+  },
+  {
+    "id": 1785356352269,
+    "mobile": "919182882116",
+    "message": "Hi",
+    "sender_name": "Kaveri Chitkote",
+    "is_saved": 1,
+    "created_at": "2026-07-29T20:19:12.269Z"
+  },
+  {
+    "id": 1785335585457,
+    "mobile": "919876543210",
+    "message": "Hi, I have 32FT Truck in Hyderabad",
+    "sender_name": "Driver Vijay",
+    "is_saved": 1,
+    "created_at": "2026-07-29T14:33:05.457Z"
+  }
+]
