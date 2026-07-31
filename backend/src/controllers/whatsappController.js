@@ -609,6 +609,13 @@ const webhook = async (req, res) => {
     if (mode === 'subscribe' && validTokens.has(token)) {
       return res.status(200).send(challenge);
     }
+    if (!mode && !token) {
+      return res.status(200).json({
+        success: true,
+        service: 'Chitkote Logistics WhatsApp Webhook',
+        status: 'Active & Listening for Meta Events 🚀',
+      });
+    }
     return res.sendStatus(403);
   }
 
