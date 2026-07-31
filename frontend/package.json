@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "vite",
-    "build": "npx vite build"
+    "build": "vite build"
   },
   "dependencies": {
     "axios": "^1.7.2",
@@ -13,13 +13,11 @@
     "react-chartjs-2": "^4.0.0",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.21.1",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
+    "xlsx": "^0.18.5",
+    "vite": "^5.4.10",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.15",
-    "vite": "^5.4.10"
+    "tailwindcss": "^3.4.15"
   }
 }
