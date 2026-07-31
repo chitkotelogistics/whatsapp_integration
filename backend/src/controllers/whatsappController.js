@@ -279,7 +279,17 @@ const broadcastLoads = async (req, res) => {
       return res.status(400).json({ success: false, error: 'No contacts selected for broadcast' });
     }
 
-    const contacts = await getContactsByIds(contactIds);
+    const resolvedContacts = await getContactsByIds(contactIds);
+
+    // Deduplicate target contacts by mobile number
+    const uniqueContactsMap = new Map();
+    for (const c of resolvedContacts) {
+      const normMob = normalizePhone(c.mobile);
+      if (normMob && !uniqueContactsMap.has(normMob)) {
+        uniqueContactsMap.set(normMob, { ...c, mobile: normMob });
+      }
+    }
+    const contacts = Array.from(uniqueContactsMap.values());
 
     if (!contacts.length) {
       return res.status(400).json({ success: false, error: 'Selected contacts not found' });
