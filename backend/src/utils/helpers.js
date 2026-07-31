@@ -9,21 +9,23 @@ const generateLoadId = () => {
 
 const formatWhatsAppMessage = (payload = {}) => {
   const contactNum = payload.contactNumber || payload.contact_number || '9390003955';
+  const fromCity = payload.from || payload.from_city || 'Hyderabad';
+  const toCity = payload.to || payload.to_city || 'Chennai';
+  const vehicle = payload.vehicleType || payload.vehicle_type || '32 FT Open Truck';
+  const weight = payload.weight || '25 Tons';
+  const freight = payload.freight || '42000';
+
   return [
-    '🚛 Chitkote Logistics',
+    '*🚚 Chitkote Logistics Load Available*',
     '',
-    'A new load is available.',
+    `📍 Pickup City: ${fromCity}`,
+    `📍 Delivery City: ${toCity}`,
+    `🚚 Vehicle Type Required: ${vehicle}`,
+    `⚖️ Shipment Weight: ${weight}`,
+    `💰 Agreed Freight Rate: ${freight}`,
+    `📞 Direct Contact Phone: ${contactNum}`,
     '',
-    `📍 From: ${payload.from || payload.from_city || 'Hyderabad'}`,
-    `📍 To: ${payload.to || payload.to_city || 'Chennai'}`,
-    '',
-    `🚚 Vehicle: ${payload.vehicleType || payload.vehicle_type || '32 FT Open Truck'}`,
-    `⚖️ Weight: ${payload.weight || '25 Tons'}`,
-    `💰 Freight: ${payload.freight || '42000'}`,
-    '',
-    `📞 Contact: ${contactNum}`,
-    '',
-    'Reply if you are interested or call the contact number.',
+    'Please call or reply to this message if you are available to accept this load.',
   ].join('\n');
 };
 

@@ -8,7 +8,7 @@ const axios = require('axios');
 
   const broadcastRes = await axios.post(`${base}/broadcast`, {
     contactIds: [1785231541477],
-    message: '🚛 LOAD AVAILABLE - LIVE BROADCAST UPDATE\n\nFROM : Chennai\nTO : Hyderabad\n\nMaterial : FMCG\nWeight : 18 Tons\n\nVehicle : 32 FT Container\nFreight : 42000\n\nContact : Chitkote Logistics 9441510824'
+    message: '*🚚 Chitkote Logistics Load Available*\n\n*📍 Pickup City:* Chennai\n*📍 Delivery City:* Hyderabad\n*🚚 Vehicle Type Required:* 32 FT Container\n*⚖️ Shipment Weight:* 18 Tons\n*💰 Agreed Freight Rate:* 42000\n*📞 Direct Contact Phone:* 9441510824\n\nPlease call or reply to this message if you are available to accept this load.'
   });
 
   console.log('Broadcast API Result:');

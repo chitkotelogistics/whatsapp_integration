@@ -4,43 +4,34 @@ import { broadcast, createGroup, getContacts, getGroups, getGroupContacts, getLo
 const formatLoadForBroadcast = (l) => {
   if (!l) return '';
   const text = l.message || l.message_body || '';
-  if (text.includes('Chitkote Logistics') && text.includes('From:')) {
+  if (text.includes('Chitkote Logistics') && text.includes('Pickup City:')) {
     return text;
   }
+  const contactNum = l.contactPerson ? `${l.contactPerson} ${l.contactNumber || l.contact_number || '9390003955'}`.trim() : (l.contactNumber || l.contact_number || '9390003955');
   return [
-    '🚛 Chitkote Logistics',
+    '*🚚 Chitkote Logistics Load Available*',
     '',
-    'A new load is available.',
+    `📍 Pickup City: ${l.from || l.from_city || 'Chennai'}`,
+    `📍 Delivery City: ${l.to || l.to_city || 'Coimbatore'}`,
+    `🚚 Vehicle Type Required: ${l.vehicleType || l.vehicle_type || '32 FT Open Truck'}`,
+    `⚖️ Shipment Weight: ${l.weight || '25 Tons'}`,
+    `💰 Agreed Freight Rate: ${l.freight || '42000'}`,
+    `📞 Direct Contact Phone: ${contactNum}`,
     '',
-    `📍 From: ${l.from || l.from_city || 'Chennai'}`,
-    `📍 To: ${l.to || l.to_city || 'Coimbatore'}`,
-    '',
-    `🚚 Vehicle: ${l.vehicleType || l.vehicle_type || '32 FT Open Truck'}`,
-    `⚖️ Weight: ${l.weight || '25 Tons'}`,
-    `💰 Freight: ${l.freight || '42000'}`,
-    '',
-    `📞 Contact: ${l.contactPerson || ''} ${l.contactNumber || l.contact_number || '9390003955'}`.trim(),
-    '',
-    l.loadId ? `Load ID: ${l.loadId}` : '',
-    '',
-    'Reply if you are interested or call the contact number.',
+    'Please call or reply to this message if you are available to accept this load.',
   ].join('\n');
 };
 
-const defaultBroadcastMessage = `🚛 Chitkote Logistics
+const defaultBroadcastMessage = `*🚚 Chitkote Logistics Load Available*
 
-A new load is available.
+📍 Pickup City: Hyderabad
+📍 Delivery City: Chennai
+🚚 Vehicle Type Required: 32 FT Open Truck
+⚖️ Shipment Weight: 25 Tons
+💰 Agreed Freight Rate: 42000
+📞 Direct Contact Phone: 9390003955
 
-📍 From: Hyderabad
-📍 To: Chennai
-
-🚚 Vehicle: 32 FT Open Truck
-⚖️ Weight: 25 Tons
-💰 Freight: 42000
-
-📞 Contact: 9390003955
-
-Reply if you are interested or call the contact number.`;
+Please call or reply to this message if you are available to accept this load.`;
 
 const Broadcast = () => {
   const [contacts, setContacts] = useState([]);

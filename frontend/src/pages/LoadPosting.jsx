@@ -15,20 +15,16 @@ const emptyForm = {
 
 const generatePreview = (data) => {
   return [
-    '🚛 Chitkote Logistics',
+    '*🚚 Chitkote Logistics Load Available*',
     '',
-    'A new load is available.',
+    `📍 Pickup City: ${data.from || 'Hyderabad'}`,
+    `📍 Delivery City: ${data.to || 'Chennai'}`,
+    `🚚 Vehicle Type Required: ${data.vehicleType || '32 FT Open Truck'}`,
+    `⚖️ Shipment Weight: ${data.weight || '25 Tons'}`,
+    `💰 Agreed Freight Rate: ${data.freight || '42000'}`,
+    `📞 Direct Contact Phone: ${data.contactNumber || '9390003955'}`,
     '',
-    `📍 From: ${data.from || 'Hyderabad'}`,
-    `📍 To: ${data.to || 'Chennai'}`,
-    '',
-    `🚚 Vehicle: ${data.vehicleType || '32 FT Open Truck'}`,
-    `⚖️ Weight: ${data.weight || '25 Tons'}`,
-    `💰 Freight: ${data.freight || '42000'}`,
-    '',
-    `📞 Contact: ${data.contactNumber || '9390003955'}`,
-    '',
-    'Reply if you are interested or call the contact number.',
+    'Please call or reply to this message if you are available to accept this load.',
   ].join('\n');
 };
 
