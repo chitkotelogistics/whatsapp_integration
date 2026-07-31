@@ -267,6 +267,16 @@ const deleteLoad = async (req, res) => {
   res.json({ success: true, id });
 };
 
+const clearAllLoads = async (_req, res) => {
+  try {
+    await db.execute('DELETE FROM loads');
+  } catch (error) {
+    // ignore DB error
+  }
+  writeFallbackLoads([]);
+  res.json({ success: true, message: 'All load postings cleared' });
+};
+
 const broadcastLoads = async (req, res) => {
   try {
     const { contactIds, message, type = 'text', scheduledAt, mediaUrl, caption, template } = req.body;
@@ -799,6 +809,7 @@ module.exports = {
   createLoad,
   updateLoad,
   deleteLoad,
+  clearAllLoads,
   broadcastLoads,
   getSettings,
   saveSettings,
