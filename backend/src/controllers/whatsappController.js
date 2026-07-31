@@ -300,7 +300,7 @@ const broadcastLoads = async (req, res) => {
     const queueItems = contacts.map((contact) => ({
       to: contact.mobile,
       message: queuedMessage,
-      type: type || 'text',
+      type: type || 'template',
       mediaUrl,
       caption,
       template: template || buildLoadNotificationTemplate(queuedMessage),
