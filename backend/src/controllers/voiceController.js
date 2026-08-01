@@ -83,28 +83,67 @@ const makeCallToContact = async (req, res) => {
 
 const broadcastVoiceCalls = async (req, res) => {
   try {
-    const { contactIds = [], appId } = req.body;
+    const { contactIds = [], appId, loadDetails, loadId } = req.body;
 
     if (!Array.isArray(contactIds) || !contactIds.length) {
       return res.status(400).json({ success: false, error: 'No contacts selected for voice call broadcast' });
     }
 
+    // Resolve contact IDs to real mobile numbers
+    const strIds = new Set(contactIds.map((id) => String(id).trim()));
+    const resolvedMobiles = new Set();
+    const fallbackContacts = readFallbackContacts();
+
+    // 1. Try DB lookup
+    try {
+      const [rows] = await db.query('SELECT id, mobile FROM contacts');
+      for (const r of rows) {
+        if (strIds.has(String(r.id)) || strIds.has(String(r.mobile))) {
+          if (r.mobile) resolvedMobiles.add(r.mobile);
+        }
+      }
+    } catch (e) {}
+
+    // 2. Try Fallback fileStore lookup
+    for (const fb of fallbackContacts) {
+      if (strIds.has(String(fb.id)) || strIds.has(String(fb.mobile))) {
+        if (fb.mobile) resolvedMobiles.add(fb.mobile);
+      }
+    }
+
+    // 3. Include any raw direct phone numbers
+    for (const item of contactIds) {
+      const cleaned = String(item).replace(/\D/g, '');
+      if (cleaned.length === 10 || (cleaned.length === 12 && cleaned.startsWith('91'))) {
+        resolvedMobiles.add(item);
+      }
+    }
+
+    const targetList = Array.from(resolvedMobiles);
+
+    if (!targetList.length) {
+      return res.status(400).json({ success: false, error: 'Selected contacts could not be resolved to valid mobile numbers' });
+    }
+
     const results = [];
     const errors = [];
 
-    for (const item of contactIds) {
+    const activeLoadText = loadDetails || (loadId ? `Load ID: ${loadId}` : 'General Load Dispatch');
+
+    for (const targetMobile of targetList) {
       try {
-        const exotelResult = await initiateExotelCall(item, appId);
+        const exotelResult = await initiateExotelCall(targetMobile, appId);
         const callData = exotelResult?.Call || {};
         const logEntry = await persistVoiceLog({
-          contactId: item,
-          mobile: formatExotelPhone(item),
+          mobile: formatExotelPhone(targetMobile),
           callSid: callData.Sid,
           status: callData.Status || 'in-progress',
+          loadDetails: activeLoadText,
         });
-        results.push({ target: item, callSid: callData.Sid, status: callData.Status, log: logEntry });
+        results.push({ target: targetMobile, callSid: callData.Sid, status: callData.Status, log: logEntry });
       } catch (err) {
-        errors.push({ target: item, error: err.message });
+        const errDetail = err.response?.data?.RestException?.Message || err.message;
+        errors.push({ target: targetMobile, error: errDetail });
       }
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -112,9 +151,10 @@ const broadcastVoiceCalls = async (req, res) => {
 
     res.json({
       success: results.length > 0,
-      total: contactIds.length,
+      total: targetList.length,
       successfulCalls: results.length,
       failedCalls: errors.length,
+      loadDetails: activeLoadText,
       results,
       errors,
     });
