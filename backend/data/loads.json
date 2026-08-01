@@ -1,1 +1,46 @@
-[]
+[
+  {
+    "id": 1785500000001,
+    "loadId": "CLI-20260722-CC60",
+    "from": "Hyderabad",
+    "from_city": "Hyderabad",
+    "to": "Chennai",
+    "to_city": "Chennai",
+    "material": "Industrial Equipment / Machinery",
+    "weight": "25 Tons",
+    "vehicleType": "32 FT Open Truck",
+    "vehicle_type": "32 FT Open Truck",
+    "loadingDate": "2026-08-01",
+    "loading_date": "2026-08-01",
+    "freight": "42000",
+    "contactPerson": "Prashant Chitkote",
+    "contact_person": "Prashant Chitkote",
+    "contactNumber": "9390003955",
+    "contact_number": "9390003955",
+    "message": "*🚚 Chitkote Logistics Load Available*\n\n📍 Pickup City: Hyderabad\n📍 Delivery City: Chennai\n🚚 Vehicle Type Required: 32 FT Open Truck\n⚖️ Shipment Weight: 25 Tons\n💰 Agreed Freight Rate: 42000\n📞 Direct Contact Phone: Prashant Chitkote 9390003955\n\nPlease call or reply to this message if you are available to accept this load.",
+    "message_body": "*🚚 Chitkote Logistics Load Available*\n\n📍 Pickup City: Hyderabad\n📍 Delivery City: Chennai\n🚚 Vehicle Type Required: 32 FT Open Truck\n⚖️ Shipment Weight: 25 Tons\n💰 Agreed Freight Rate: 42000\n📞 Direct Contact Phone: Prashant Chitkote 9390003955\n\nPlease call or reply to this message if you are available to accept this load.",
+    "created_at": "2026-08-01T00:00:00.000Z"
+  },
+  {
+    "id": 1785500000002,
+    "loadId": "CLI-20260801-MH10",
+    "from": "Pune",
+    "from_city": "Pune",
+    "to": "Mumbai",
+    "to_city": "Mumbai",
+    "material": "Auto Parts & Accessories",
+    "weight": "18 Tons",
+    "vehicleType": "12tyer Truck",
+    "vehicle_type": "12tyer Truck",
+    "loadingDate": "2026-08-01",
+    "loading_date": "2026-08-01",
+    "freight": "28000",
+    "contactPerson": "Prashant Chitkote",
+    "contact_person": "Prashant Chitkote",
+    "contactNumber": "9390003955",
+    "contact_number": "9390003955",
+    "message": "*🚚 Chitkote Logistics Load Available*\n\n📍 Pickup City: Pune\n📍 Delivery City: Mumbai\n🚚 Vehicle Type Required: 12tyer Truck\n⚖️ Shipment Weight: 18 Tons\n💰 Agreed Freight Rate: 28000\n📞 Direct Contact Phone: Prashant Chitkote 9390003955\n\nPlease call or reply to this message if you are available to accept this load.",
+    "message_body": "*🚚 Chitkote Logistics Load Available*\n\n📍 Pickup City: Pune\n📍 Delivery City: Mumbai\n🚚 Vehicle Type Required: 12tyer Truck\n⚖️ Shipment Weight: 18 Tons\n💰 Agreed Freight Rate: 28000\n📞 Direct Contact Phone: Prashant Chitkote 9390003955\n\nPlease call or reply to this message if you are available to accept this load.",
+    "created_at": "2026-08-01T00:00:00.000Z"
+  }
+]
