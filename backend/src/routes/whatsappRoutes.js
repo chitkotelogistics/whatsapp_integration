@@ -4,6 +4,8 @@ const { getLoads, createLoad, updateLoad, deleteLoad, clearAllLoads, broadcastLo
 const { listContacts, createContact, updateContact, importContacts, deleteContact, deleteContactsBulk } = require('../controllers/contactController');
 const { listGroups, createGroup, getGroupContacts, deleteGroup, clearAllGroups } = require('../controllers/groupController');
 
+const { makeCallToContact, broadcastVoiceCalls, getVoiceLogs, exotelStatusWebhook } = require('../controllers/voiceController');
+
 router.get('/loads', getLoads);
 router.post('/loads', createLoad);
 router.put('/loads/:id', updateLoad);
@@ -21,6 +23,13 @@ router.get('/webhook-events', getWebhookEvents);
 router.get('/inbound-messages', getInboundMessages);
 router.post('/inbound-messages/save-contact', saveInboundAsContact);
 router.post('/retry-failed', retryFailedMessages);
+
+router.post('/voice/call', makeCallToContact);
+router.post('/voice/broadcast', broadcastVoiceCalls);
+router.get('/voice/logs', getVoiceLogs);
+router.post('/voice/webhook', exotelStatusWebhook);
+router.all('/voice/status', exotelStatusWebhook);
+
 router.get('/contacts', listContacts);
 router.post('/contacts', createContact);
 router.post('/contacts/import', importContacts);

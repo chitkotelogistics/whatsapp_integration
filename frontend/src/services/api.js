@@ -41,4 +41,7 @@ export const getWebhookEvents = () => api.get('/webhook-events');
 export const getTemplates = () => api.get('/templates');
 export const getInboundMessages = () => api.get('/inbound-messages');
 export const saveInboundAsContact = (payload) => api.post('/inbound-messages/save-contact', payload);
+export const makeVoiceCall = (payload) => api.post('/voice/call', payload);
+export const broadcastVoiceCalls = (payload) => api.post('/voice/broadcast', payload);
+export const getVoiceLogs = () => api.get('/voice/logs');
 export default api;

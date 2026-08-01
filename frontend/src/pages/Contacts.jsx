@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { createContact, deleteContact, deleteContactsBulk, getContacts, getInboundMessages, importContacts, saveInboundAsContact, sendTestMessage, updateContact, validateContacts } from '../services/api';
+import { createContact, deleteContact, deleteContactsBulk, getContacts, getInboundMessages, importContacts, makeVoiceCall, saveInboundAsContact, sendTestMessage, updateContact, validateContacts } from '../services/api';
 
 const emptyForm = { name: '', mobile: '', company: '', city: '', state: '', vehicleType: '' };
 
@@ -454,13 +454,23 @@ const Contacts = () => {
       <div className="rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
         <div className="border-b border-slate-800 px-4 py-3 text-xs font-semibold text-slate-400 flex justify-between items-center">
           <span>Search Results ({filteredContacts.length})</span>
-          {selectedIds.length > 0 && <span className="text-cyan-400">{selectedIds.length} Selected</span>}
+          {selectedIds.length > 0 && (
+            <div className="flex gap-2 items-center">
+              <span className="text-cyan-400 font-mono">{selectedIds.length} Selected</span>
+              <button
+                onClick={handleBulkDelete}
+                className="rounded bg-rose-950 border border-rose-800 px-2.5 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-900"
+              >
+                Delete Selected ({selectedIds.length})
+              </button>
+            </div>
+          )}
         </div>
-        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-900/90 text-slate-400 sticky top-0 z-10">
-              <tr className="text-left text-xs uppercase tracking-wider">
-                <th className="p-3">
+        <div className="max-h-96 overflow-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-900/80 text-slate-400 font-semibold border-b border-slate-800">
+              <tr>
+                <th className="p-3 w-8">
                   <input
                     type="checkbox"
                     className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-600 focus:ring-cyan-500"
@@ -468,13 +478,13 @@ const Contacts = () => {
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th className="p-3">Name</th>
-                <th className="p-3">Mobile</th>
-                <th className="p-3">Company</th>
-                <th className="p-3">City</th>
-                <th className="p-3">State</th>
-                <th className="p-3">Vehicle</th>
-                <th className="p-3 text-right">Actions</th>
+                <th className="p-3">NAME</th>
+                <th className="p-3">MOBILE</th>
+                <th className="p-3">COMPANY</th>
+                <th className="p-3">CITY</th>
+                <th className="p-3">STATE</th>
+                <th className="p-3">VEHICLE</th>
+                <th className="p-3 text-right">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -502,9 +512,16 @@ const Contacts = () => {
                     <td className="p-3 text-slate-300">{contact.state || '—'}</td>
                     <td className="p-3 text-slate-300">{contact.vehicle_type || '—'}</td>
                     <td className="p-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button className="rounded-lg bg-slate-800 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white" onClick={() => handleEdit(contact)}>Edit</button>
-                        <button className="rounded-lg bg-rose-950 border border-rose-800/60 px-3 py-1 text-xs font-medium text-rose-300 hover:bg-rose-900" onClick={() => handleDelete(contact.id)}>Delete</button>
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          className="rounded-lg bg-emerald-950 border border-emerald-800/60 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-900 flex items-center gap-1"
+                          onClick={() => handleCallDriver(contact)}
+                          title="Auto-Call Driver via Exotel"
+                        >
+                          📞 Call
+                        </button>
+                        <button className="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white" onClick={() => handleEdit(contact)}>Edit</button>
+                        <button className="rounded-lg bg-rose-950 border border-rose-800/60 px-2.5 py-1 text-xs font-medium text-rose-300 hover:bg-rose-900" onClick={() => handleDelete(contact.id)}>Delete</button>
                       </div>
                     </td>
                   </tr>
