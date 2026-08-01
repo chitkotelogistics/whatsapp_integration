@@ -830,6 +830,7 @@ module.exports = {
   clearAllLoads,
   broadcastLoads,
   getSettings,
+  getSettingsConfig,
   saveSettings,
   getMessageLogs,
   clearAllMessageHistory,
