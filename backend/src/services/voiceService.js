@@ -45,7 +45,8 @@ const initiateExotelCall = async (targetPhone, customAppId = null, customField =
   const flowUrl = `https://my.exotel.com/${config.accountSid}/exomls/start_voice/${appId}`;
 
   const payloadObj = {
-    From: formattedTo,
+    From: config.callerId,
+    To: formattedTo,
     CallerId: config.callerId,
     Url: passthruUrl,
     CallType: 'transient',
