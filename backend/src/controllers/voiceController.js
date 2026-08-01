@@ -190,9 +190,18 @@ const exotelStatusWebhook = async (req, res) => {
       mem.status = Status || 'completed';
       if (CallDuration) mem.duration = CallDuration;
     }
-  }
-
   res.send('OK');
+};
+
+const exotelPassthru = async (req, res) => {
+  const customField = req.query.CustomField || req.body.CustomField || req.query.custom_field || 'Chitkote Logistics se naye load ki jaankari';
+  const textToSay = `Namaste! Chitkote Logistics. ${customField}. Kripya hamare WhatsApp par sampark karein. Dhanyawad!`;
+
+  res.set('Content-Type', 'text/xml');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say voice="female" language="hi-IN">${textToSay}</Say>
+</Response>`);
 };
 
 module.exports = {
@@ -200,4 +209,5 @@ module.exports = {
   broadcastVoiceCalls,
   getVoiceLogs,
   exotelStatusWebhook,
+  exotelPassthru,
 };

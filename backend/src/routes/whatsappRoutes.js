@@ -4,7 +4,7 @@ const { getLoads, createLoad, updateLoad, deleteLoad, clearAllLoads, broadcastLo
 const { listContacts, createContact, updateContact, importContacts, deleteContact, deleteContactsBulk } = require('../controllers/contactController');
 const { listGroups, createGroup, getGroupContacts, deleteGroup, clearAllGroups } = require('../controllers/groupController');
 
-const { makeCallToContact, broadcastVoiceCalls, getVoiceLogs, exotelStatusWebhook } = require('../controllers/voiceController');
+const { makeCallToContact, broadcastVoiceCalls, getVoiceLogs, exotelStatusWebhook, exotelPassthru } = require('../controllers/voiceController');
 
 router.get('/loads', getLoads);
 router.post('/loads', createLoad);
@@ -29,6 +29,7 @@ router.post('/voice/broadcast', broadcastVoiceCalls);
 router.get('/voice/logs', getVoiceLogs);
 router.post('/voice/webhook', exotelStatusWebhook);
 router.all('/voice/status', exotelStatusWebhook);
+router.all('/voice/passthru', exotelPassthru);
 
 router.get('/contacts', listContacts);
 router.post('/contacts', createContact);
