@@ -47,7 +47,7 @@ const initiateExotelCall = async (targetPhone, customAppId = null, customField =
   const payloadObj = {
     From: formattedTo,
     CallerId: config.callerId,
-    Url: customField ? passthruUrl : flowUrl,
+    Url: passthruUrl,
     StatusCallback: 'https://whatsapp-integration-8aoz.onrender.com/api/voice/webhook',
   };
 
