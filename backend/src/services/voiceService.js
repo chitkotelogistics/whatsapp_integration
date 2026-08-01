@@ -10,7 +10,7 @@ const getExotelConfig = async () => {
   const apiKey = process.env.EXOTEL_API_KEY || settings.EXOTEL_API_KEY || '65ffb1f4a08ea9873abf4c8d1ae1255a0e44f258097d6142';
   const apiToken = process.env.EXOTEL_API_TOKEN || settings.EXOTEL_API_TOKEN || 'ef59f2a5022e0f59d0b4cf67e45bc358363606f466bc1ed9';
   const callerId = process.env.EXOTEL_CALLER_ID || settings.EXOTEL_CALLER_ID || '02048564809';
-  const appId = process.env.EXOTEL_APP_ID || settings.EXOTEL_APP_ID || '1304908';
+  const appId = process.env.EXOTEL_APP_ID || settings.EXOTEL_APP_ID || '1304942';
   const subdomain = settings.EXOTEL_SUBDOMAIN || 'api.exotel.com';
 
   return { accountSid, apiKey, apiToken, callerId, appId, subdomain };
