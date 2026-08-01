@@ -200,7 +200,8 @@ const exotelPassthru = async (req, res) => {
   res.set('Content-Type', 'text/xml');
   res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Say voice="female" language="hi-IN">${textToSay}</Say>
+    <Say>${textToSay}</Say>
+    <Hangup/>
 </Response>`);
 };
 
