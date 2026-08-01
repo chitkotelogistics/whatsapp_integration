@@ -30,7 +30,7 @@ const formatExotelPhone = (phone = '') => {
   return cleaned ? `0${cleaned.slice(-10)}` : '';
 };
 
-const initiateExotelCall = async (targetPhone, customAppId = null) => {
+const initiateExotelCall = async (targetPhone, customAppId = null, customField = '') => {
   const config = await getExotelConfig();
   const formattedTo = formatExotelPhone(targetPhone);
 
@@ -41,12 +41,18 @@ const initiateExotelCall = async (targetPhone, customAppId = null) => {
   const auth = Buffer.from(`${config.apiKey}:${config.apiToken}`).toString('base64');
   const appId = customAppId || config.appId;
 
-  const postData = querystring.stringify({
+  const payloadObj = {
     From: formattedTo,
     CallerId: config.callerId,
     Url: `http://my.exotel.com/${config.accountSid}/exomls/start_voice/${appId}`,
-  });
+    StatusCallback: 'https://whatsapp-integration-8aoz.onrender.com/api/voice/webhook',
+  };
 
+  if (customField) {
+    payloadObj.CustomField = String(customField);
+  }
+
+  const postData = querystring.stringify(payloadObj);
   const url = `https://${config.subdomain}/v1/Accounts/${config.accountSid}/Calls/connect.json`;
 
   const response = await axios.post(url, postData, {

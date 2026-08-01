@@ -56,7 +56,8 @@ const makeCallToContact = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Mobile number is required for voice calling' });
     }
 
-    const exotelResult = await initiateExotelCall(targetMobile, appId);
+    const activeLoadText = loadDetails || (loadId ? `Load ID: ${loadId}` : 'General Load Dispatch');
+    const exotelResult = await initiateExotelCall(targetMobile, appId, activeLoadText);
     const callData = exotelResult?.Call || {};
 
     const logEntry = await persistVoiceLog({
@@ -64,7 +65,7 @@ const makeCallToContact = async (req, res) => {
       mobile: formatExotelPhone(targetMobile),
       callSid: callData.Sid,
       status: callData.Status || 'in-progress',
-      loadDetails: loadDetails || (loadId ? `Load ID: ${loadId}` : 'General Load Dispatch'),
+      loadDetails: activeLoadText,
     });
 
     res.json({
@@ -132,7 +133,7 @@ const broadcastVoiceCalls = async (req, res) => {
 
     for (const targetMobile of targetList) {
       try {
-        const exotelResult = await initiateExotelCall(targetMobile, appId);
+        const exotelResult = await initiateExotelCall(targetMobile, appId, activeLoadText);
         const callData = exotelResult?.Call || {};
         const logEntry = await persistVoiceLog({
           mobile: formatExotelPhone(targetMobile),
