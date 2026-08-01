@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { broadcast, createGroup, deleteGroup, clearAllGroups, getContacts, getGroups, getGroupContacts, getLoads } from '../services/api';
+import { broadcast, broadcastVoiceCalls, createGroup, deleteGroup, clearAllGroups, getContacts, getGroups, getGroupContacts, getLoads, makeVoiceCall } from '../services/api';
 
 const formatLoadForBroadcast = (l) => {
   if (!l) return '';
@@ -46,10 +46,11 @@ const Broadcast = () => {
   const [progress, setProgress] = useState(0);
   const [groupName, setGroupName] = useState('');
   const [toast, setToast] = useState(null);
+  const [directInput, setDirectInput] = useState('');
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 4500);
   };
 
   const loadContacts = async () => {
@@ -87,16 +88,13 @@ const Broadcast = () => {
     loadLoads();
   }, []);
 
-  const filtered = useMemo(
-    () =>
-      contacts.filter(
-        (contact) =>
-          contact.name.toLowerCase().includes(search.toLowerCase()) ||
-          contact.mobile.includes(search) ||
-          contact.city.toLowerCase().includes(search.toLowerCase())
-      ),
-    [contacts, search]
-  );
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return contacts;
+    return contacts.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.mobile.includes(q) || c.city.toLowerCase().includes(q) || c.vehicleType.toLowerCase().includes(q)
+    );
+  }, [contacts, search]);
 
   const toggle = (id) => {
     setSelected((prev) =>
@@ -135,8 +133,6 @@ const Broadcast = () => {
     }
   };
 
-  const [directInput, setDirectInput] = useState('');
-
   const handleSend = async () => {
     let targets = [...selected];
     if (directInput.trim()) {
@@ -157,6 +153,54 @@ const Broadcast = () => {
     } catch (err) {
       const errMsg = err.response?.data?.error || err.message;
       showToast(`❌ Broadcast Failed: ${errMsg}`, 'error');
+    } finally {
+      setTimeout(() => setProgress(0), 2000);
+    }
+  };
+
+  const activeLoadObj = useMemo(() => {
+    return loads.find((x) => String(x.id) === String(selectedLoadId) || String(x.loadId) === String(selectedLoadId));
+  }, [loads, selectedLoadId]);
+
+  const activeLoadSummary = useMemo(() => {
+    if (!activeLoadObj) return 'General Load Dispatch';
+    const fromCity = activeLoadObj.from || activeLoadObj.from_city || 'Hyderabad';
+    const toCity = activeLoadObj.to || activeLoadObj.to_city || 'Chennai';
+    const vehicle = activeLoadObj.vehicleType || activeLoadObj.vehicle_type || 'Truck';
+    const freight = activeLoadObj.freight ? `₹${activeLoadObj.freight}` : '';
+    return `${fromCity} → ${toCity} (${vehicle} ${freight})`.trim();
+  }, [activeLoadObj]);
+
+  const handleVoiceCall = async (contactMobile, contactName = '') => {
+    try {
+      showToast(`📞 Initiating Exotel voice call to ${contactName || contactMobile} for load [${activeLoadSummary}]...`);
+      const res = await makeVoiceCall({ mobile: contactMobile, loadId: selectedLoadId, loadDetails: activeLoadSummary });
+      showToast(`✅ Call Placed to ${contactName || contactMobile}! Shared Load: [${activeLoadSummary}] (Call SID: ${res.data?.callSid})`);
+    } catch (err) {
+      showToast(`❌ Voice Call Failed: ${err.response?.data?.error || err.message}`, 'error');
+    }
+  };
+
+  const handleVoiceBroadcast = async () => {
+    let targets = [...selected];
+    if (directInput.trim()) {
+      const parsedDirects = directInput.split(/[\s,]+/).map((n) => n.trim()).filter(Boolean);
+      targets = Array.from(new Set([...targets, ...parsedDirects]));
+    }
+
+    if (!targets.length) {
+      showToast('Please select a contact or enter a mobile number for voice call broadcast', 'error');
+      return;
+    }
+
+    setProgress(30);
+    try {
+      showToast(`📞 Placing Exotel Voice Calls to ${targets.length} recipient(s) for load [${activeLoadSummary}]...`);
+      const res = await broadcastVoiceCalls({ contactIds: targets, loadId: selectedLoadId, loadDetails: activeLoadSummary });
+      setProgress(100);
+      showToast(`✅ Voice Broadcast Dispatched! ${res.data?.successfulCalls || targets.length} calls placed for load [${activeLoadSummary}].`);
+    } catch (err) {
+      showToast(`❌ Voice Call Broadcast Failed: ${err.response?.data?.error || err.message}`, 'error');
     } finally {
       setTimeout(() => setProgress(0), 2000);
     }
@@ -266,9 +310,19 @@ const Broadcast = () => {
         <button className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700" onClick={clearSelection}>
           Clear Selection
         </button>
-        <button className="rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:from-cyan-500 hover:to-indigo-500 shadow-md shadow-cyan-950" onClick={handleSend}>
-          Send Broadcast ({selected.length + (directInput.trim() ? directInput.split(/[\s,]+/).filter(Boolean).length : 0)})
+        <button className="rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:from-cyan-500 hover:to-indigo-500 shadow-md shadow-cyan-950" onClick={handleSend}>
+          💬 Send WhatsApp ({selected.length + (directInput.trim() ? directInput.split(/[\s,]+/).filter(Boolean).length : 0)})
         </button>
+        <button className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950 flex items-center gap-1.5" onClick={handleVoiceBroadcast}>
+          📞 Voice Call Broadcast ({selected.length + (directInput.trim() ? directInput.split(/[\s,]+/).filter(Boolean).length : 0)})
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 p-3 text-xs text-emerald-300 flex items-center justify-between">
+        <div>
+          📌 <strong>Attached Load for Call / Message:</strong> <span className="font-mono text-emerald-200">{activeLoadSummary}</span>
+        </div>
+        <span className="text-[11px] text-emerald-400 font-medium">Exotel Voice + Meta WhatsApp Connected</span>
       </div>
 
       <div className="grid gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 md:grid-cols-3">
@@ -406,9 +460,15 @@ const Broadcast = () => {
               const isMemberOfActiveGroup = activeGroupId && isChecked;
 
               return (
-                <label key={contact.id} className={`flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors ${isChecked ? 'bg-cyan-950/30' : 'hover:bg-slate-900/60'}`}>
+                <div key={contact.id} className={`flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors ${isChecked ? 'bg-cyan-950/30' : 'hover:bg-slate-900/60'}`}>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-slate-200">{contact.name}</span>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-600 focus:ring-cyan-500"
+                      checked={isChecked}
+                      onChange={() => toggle(contact.id)}
+                    />
+                    <span className="font-medium text-slate-200" onClick={() => toggle(contact.id)}>{contact.name}</span>
                     <span className="text-xs text-slate-400">{contact.mobile} · {contact.city} ({contact.vehicleType})</span>
                     {isMemberOfActiveGroup && (
                       <span className="rounded bg-cyan-900/80 border border-cyan-700/60 px-2 py-0.5 text-[11px] font-semibold text-cyan-300">
@@ -416,13 +476,17 @@ const Broadcast = () => {
                       </span>
                     )}
                   </div>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-600 focus:ring-cyan-500"
-                    checked={isChecked}
-                    onChange={() => toggle(contact.id)}
-                  />
-                </label>
+                  <button
+                    className="rounded bg-emerald-950 border border-emerald-800/60 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-900 flex items-center gap-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleVoiceCall(contact.mobile, contact.name);
+                    }}
+                    title={`Auto-Call ${contact.name} via Exotel for load: ${activeLoadSummary}`}
+                  >
+                    📞 Voice Call
+                  </button>
+                </div>
               );
             })
           )}

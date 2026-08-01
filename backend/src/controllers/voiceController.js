@@ -13,13 +13,14 @@ const persistVoiceLog = async (logPayload) => {
     status: logPayload.status || 'in-progress',
     direction: 'outbound-api',
     duration: logPayload.duration || null,
+    loadDetails: logPayload.loadDetails || 'General Load Announcement',
     created_at: new Date().toISOString(),
   };
 
   try {
     await db.execute(
-      'INSERT INTO voice_logs (contact_id, mobile, call_sid, status, direction, duration) VALUES (?, ?, ?, ?, ?, ?)',
-      [entry.contactId, entry.mobile, entry.callSid, entry.status, entry.direction, entry.duration]
+      'INSERT INTO voice_logs (contact_id, mobile, call_sid, status, direction, duration, load_details) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [entry.contactId, entry.mobile, entry.callSid, entry.status, entry.direction, entry.duration, entry.loadDetails]
     );
   } catch (err) {
     voiceCallLogs.unshift(entry);
@@ -31,7 +32,7 @@ const persistVoiceLog = async (logPayload) => {
 
 const makeCallToContact = async (req, res) => {
   try {
-    const { contactId, mobile, appId } = req.body;
+    const { contactId, mobile, appId, loadDetails, loadId } = req.body;
 
     let targetMobile = mobile;
     let targetContactId = contactId;
@@ -63,6 +64,7 @@ const makeCallToContact = async (req, res) => {
       mobile: formatExotelPhone(targetMobile),
       callSid: callData.Sid,
       status: callData.Status || 'in-progress',
+      loadDetails: loadDetails || (loadId ? `Load ID: ${loadId}` : 'General Load Dispatch'),
     });
 
     res.json({
@@ -70,6 +72,7 @@ const makeCallToContact = async (req, res) => {
       message: `📞 Outbound automated call placed to ${targetMobile}`,
       callSid: callData.Sid,
       status: callData.Status,
+      loadDetails: logEntry.loadDetails,
       log: logEntry,
     });
   } catch (error) {
