@@ -41,10 +41,13 @@ const initiateExotelCall = async (targetPhone, customAppId = null, customField =
   const auth = Buffer.from(`${config.apiKey}:${config.apiToken}`).toString('base64');
   const appId = customAppId || config.appId;
 
+  const passthruUrl = `https://whatsapp-integration-8aoz.onrender.com/api/voice/passthru`;
+  const flowUrl = `https://my.exotel.com/${config.accountSid}/exomls/start_voice/${appId}`;
+
   const payloadObj = {
     From: formattedTo,
     CallerId: config.callerId,
-    Url: `http://my.exotel.com/${config.accountSid}/exomls/start_voice/${appId}`,
+    Url: customField ? passthruUrl : flowUrl,
     StatusCallback: 'https://whatsapp-integration-8aoz.onrender.com/api/voice/webhook',
   };
 
