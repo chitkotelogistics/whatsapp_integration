@@ -308,6 +308,16 @@ const Contacts = () => {
     }
   };
 
+  const handleCallDriver = async (contact) => {
+    try {
+      showToast(`📞 Initiating Exotel voice call to ${contact.name} (${contact.mobile})...`);
+      const res = await makeVoiceCall({ contactId: contact.id, mobile: contact.mobile });
+      showToast(`✅ Call Placed! Status: ${res.data?.status || 'In Progress'} (Call SID: ${res.data?.callSid})`);
+    } catch (err) {
+      showToast(`❌ Voice Call Failed: ${err.response?.data?.error || err.message}`, 'error');
+    }
+  };
+
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
