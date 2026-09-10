@@ -38,7 +38,7 @@ const getConfig = (config = {}) => {
   return { API_BASE_URL, API_VERSION, PHONE_NUMBER_ID, ACCESS_TOKEN, MAX_RETRIES, QUEUE_DELAY_MS };
 };
 
-const buildLoadNotificationTemplate = (messageText = '', templateName = 'load_notification') => {
+const buildLoadNotificationTemplate = (messageText = '', templateName = 'load_dispatch') => {
   const text = String(messageText || '');
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
 
@@ -120,6 +120,7 @@ const sendMessage = async (config = {}, { to, message, type = 'text', mediaUrl, 
           'Content-Type': 'application/json',
         },
       });
+      console.log('Facebook API Success Response for to:', to, JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error) {
       attempt += 1;

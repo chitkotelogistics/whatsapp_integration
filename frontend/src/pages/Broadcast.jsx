@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { broadcast, broadcastVoiceCalls, createGroup, deleteGroup, clearAllGroups, getContacts, getGroups, getGroupContacts, getLoads, makeVoiceCall } from '../services/api';
+import * as XLSX from 'xlsx';
 
 const formatLoadForBroadcast = (l) => {
   if (!l) return '';
@@ -47,10 +48,60 @@ const Broadcast = () => {
   const [groupName, setGroupName] = useState('');
   const [toast, setToast] = useState(null);
   const [directInput, setDirectInput] = useState('');
+  const [rawContacts, setRawContacts] = useState([]);
+  const [quickLoad, setQuickLoad] = useState({ from: '', to: '', vehicleType: '', weight: '', freight: '' });
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4500);
+  };
+
+  const handleExcelUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        const extracted = data.map((row) => {
+          const keys = Object.keys(row);
+          const nameKey = keys.find(k => k.toLowerCase().includes('name')) || keys[0];
+          const phoneKey = keys.find(k => k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile') || k.toLowerCase().includes('contact')) || keys[1];
+          return {
+            name: row[nameKey] || 'Unknown',
+            mobile: String(row[phoneKey] || '').replace(/\D/g, '')
+          };
+        }).filter(c => c.mobile.length >= 10);
+        
+        setRawContacts(extracted);
+        showToast(`✅ Extracted ${extracted.length} contacts from Excel file.`);
+      } catch (err) {
+        showToast(`❌ Failed to parse Excel file: ${err.message}`, 'error');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const updateQuickLoad = (field, value) => {
+    const newQl = { ...quickLoad, [field]: value };
+    setQuickLoad(newQl);
+    setMessage([
+      '*🚚 Chitkote Logistics Load Available*',
+      '',
+      `📍 Pickup City: ${newQl.from || '...'}`,
+      `📍 Delivery City: ${newQl.to || '...'}`,
+      `🚚 Vehicle Type Required: ${newQl.vehicleType || '...'}`,
+      `⚖️ Shipment Weight: ${newQl.weight || '...'}`,
+      `💰 Agreed Freight Rate: ${newQl.freight || '...'}`,
+      `📞 Direct Contact Phone: 9390003955`,
+      '',
+      'Please call or reply to this message if you are available to accept this load.',
+    ].join('\n'));
   };
 
   const loadContacts = async () => {
@@ -140,14 +191,20 @@ const Broadcast = () => {
       targets = Array.from(new Set([...targets, ...parsedDirects]));
     }
 
-    if (!targets.length) {
-      showToast('Please select a contact or enter a mobile number for broadcast', 'error');
+    if (!targets.length && !rawContacts.length) {
+      showToast('Please select a contact, enter a mobile number, or upload an Excel sheet for broadcast', 'error');
       return;
     }
 
     setProgress(30);
     try {
-      const res = await broadcast({ contactIds: targets, message, scheduledAt: scheduledAt || undefined });
+      const res = await broadcast({ 
+        contactIds: targets, 
+        rawContacts: rawContacts.map(c => ({ name: c.name, mobile: c.mobile })), 
+        message, 
+        scheduledAt: scheduledAt || undefined,
+        type: 'template' // Force template for business-initiated messages
+      });
       setProgress(100);
       processBroadcastResponse(res.data);
     } catch (err) {
@@ -283,17 +340,31 @@ const Broadcast = () => {
         </div>
       )}
 
-      <div className="rounded-xl border border-cyan-900/50 bg-cyan-950/20 p-4 space-y-2">
-        <label className="block text-xs font-semibold text-cyan-300">
-          📱 Direct Send to Phone Number(s) — Send without saving in Contacts first
-        </label>
-        <div className="flex gap-2">
-          <input
-            className="flex-1 rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm font-mono text-cyan-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
-            placeholder="Type single or multiple mobile numbers separated by commas (e.g. 9390006942, 9441510824)..."
-            value={directInput}
-            onChange={(e) => setDirectInput(e.target.value)}
-          />
+      <div className="grid gap-4 md:grid-cols-2 mb-4">
+        <div className="rounded-xl border border-cyan-900/50 bg-cyan-950/20 p-4 space-y-2">
+          <label className="block text-xs font-semibold text-cyan-300">
+            📱 Direct Send to Phone Number(s)
+          </label>
+          <div className="flex gap-2">
+            <input
+              className="flex-1 rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm font-mono text-cyan-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+              placeholder="Type single or multiple mobile numbers separated by commas (e.g. 9390006942, 9441510824)..."
+              value={directInput}
+              onChange={(e) => setDirectInput(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-indigo-900/50 bg-indigo-950/20 p-4 space-y-2">
+          <label className="block text-xs font-semibold text-indigo-300">
+            📊 Upload Excel / CSV (Name, Phone)
+          </label>
+          <input type="file" accept=".xlsx, .xls, .csv" onChange={handleExcelUpload} className="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-900 file:text-indigo-200 hover:file:bg-indigo-800" />
+          {rawContacts.length > 0 && (
+            <div className="mt-1 text-xs text-emerald-400 font-medium">
+              ✅ {rawContacts.length} contacts extracted and ready for broadcast.
+            </div>
+          )}
         </div>
       </div>
 
@@ -325,7 +396,18 @@ const Broadcast = () => {
         <span className="text-[11px] text-emerald-400 font-medium">Exotel Voice + Meta WhatsApp Connected</span>
       </div>
 
-      <div className="grid gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 md:grid-cols-3">
+      <div className="grid gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 mt-4">
+        <h3 className="text-sm font-semibold text-white mb-2">⚡ Quick Load Generator</h3>
+        <div className="grid gap-3 md:grid-cols-5 mb-2">
+          <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="From (e.g. Mumbai)" value={quickLoad.from} onChange={e => updateQuickLoad('from', e.target.value)} />
+          <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="To (e.g. Delhi)" value={quickLoad.to} onChange={e => updateQuickLoad('to', e.target.value)} />
+          <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="Vehicle (e.g. 32 FT)" value={quickLoad.vehicleType} onChange={e => updateQuickLoad('vehicleType', e.target.value)} />
+          <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="Weight (e.g. 15 Tons)" value={quickLoad.weight} onChange={e => updateQuickLoad('weight', e.target.value)} />
+          <input className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="Freight (e.g. ₹20000)" value={quickLoad.freight} onChange={e => updateQuickLoad('freight', e.target.value)} />
+        </div>
+      </div>
+
+      <div className="grid gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 md:grid-cols-3 mt-4">
         <div className="md:col-span-2 space-y-2">
           <label className="block text-xs font-semibold text-slate-300">WhatsApp Message Content</label>
           <textarea

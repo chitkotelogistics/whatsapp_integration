@@ -190,6 +190,7 @@ const exotelStatusWebhook = async (req, res) => {
       mem.status = Status || 'completed';
       if (CallDuration) mem.duration = CallDuration;
     }
+  }
   res.send('OK');
 };
 

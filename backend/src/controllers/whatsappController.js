@@ -273,13 +273,20 @@ const clearAllLoads = async (_req, res) => {
 
 const broadcastLoads = async (req, res) => {
   try {
-    const { contactIds, message, type = 'text', scheduledAt, mediaUrl, caption, template } = req.body;
+    const { contactIds, rawContacts, message, type = 'text', scheduledAt, mediaUrl, caption, template } = req.body;
 
-    if (!Array.isArray(contactIds) || !contactIds.length) {
+    if ((!Array.isArray(contactIds) || !contactIds.length) && (!Array.isArray(rawContacts) || !rawContacts.length)) {
       return res.status(400).json({ success: false, error: 'No contacts selected for broadcast' });
     }
 
-    const resolvedContacts = await getContactsByIds(contactIds);
+    let resolvedContacts = [];
+    if (Array.isArray(contactIds) && contactIds.length) {
+      resolvedContacts = await getContactsByIds(contactIds);
+    }
+
+    if (Array.isArray(rawContacts) && rawContacts.length) {
+      resolvedContacts = [...resolvedContacts, ...rawContacts];
+    }
 
     // Deduplicate target contacts by mobile number
     const uniqueContactsMap = new Map();
