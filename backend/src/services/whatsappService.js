@@ -38,23 +38,23 @@ const getConfig = (config = {}) => {
   return { API_BASE_URL, API_VERSION, PHONE_NUMBER_ID, ACCESS_TOKEN, MAX_RETRIES, QUEUE_DELAY_MS };
 };
 
-const buildLoadNotificationTemplate = (messageText = '', templateName = 'load_dispatch') => {
+const buildLoadNotificationTemplate = (messageText = '', templateName = 'new_load_available_utility') => {
   const text = String(messageText || '');
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
 
-  const fromMatch = text.match(/(?:From|FROM|Pickup City)\s*:\s*([^\n]+)/i);
-  const toMatch = text.match(/(?:To|TO|Delivery City)\s*:\s*([^\n]+)/i);
-  const weightMatch = text.match(/(?:Weight|WEIGHT|Shipment Weight)\s*:\s*([^\n]+)/i);
-  const vehicleMatch = text.match(/(?:Vehicle|VEHICLE|Vehicle Type Required)\s*:\s*([^\n]+)/i);
-  const freightMatch = text.match(/(?:Freight|FREIGHT|Agreed Freight Rate)\s*:\s*([^\n]+)/i);
-  const contactMatch = text.match(/(?:Contact|CONTACT|Direct Contact Phone)\s*:\s*([^\n]+)/i);
+  const fromMatch = text.match(/(?:From|FROM|Pickup City|Pickup)\s*:\s*\*?([^\n\*]+)/i);
+  const toMatch = text.match(/(?:To|TO|Delivery City|Delivery)\s*:\s*\*?([^\n\*]+)/i);
+  const weightMatch = text.match(/(?:Weight|WEIGHT|Shipment Weight)\s*:\s*\*?([^\n\*]+)/i);
+  const vehicleMatch = text.match(/(?:Vehicle|VEHICLE|Vehicle Type Required|Vehicle Required)\s*:\s*\*?([^\n\*]+)/i);
+  const freightMatch = text.match(/(?:Freight|FREIGHT|Agreed Freight Rate|Freight Rate)\s*:\s*\*?(?:₹)?([^\n\*]+)/i);
+  const contactMatch = text.match(/(?:Contact|CONTACT|Direct Contact Phone|Contact Number)\s*:\s*\*?([^\n\*]+)/i);
   const phoneDigitsMatch = text.match(/\b(?:91)?[6-9]\d{9}\b/);
 
   let from = fromMatch ? fromMatch[1].trim() : 'Hyderabad';
   let to = toMatch ? toMatch[1].trim() : 'Chennai';
   let vehicle = vehicleMatch ? vehicleMatch[1].trim() : '32 FT Open Truck';
   let weight = weightMatch ? weightMatch[1].trim() : '25 Tons';
-  let freight = freightMatch ? freightMatch[1].trim() : '42000';
+  let freight = freightMatch ? freightMatch[1].replace(/[^\d\.]/g, '').trim() || '42000' : '42000';
   let contact = contactMatch ? contactMatch[1].replace(/\D/g, '').slice(-10) : (phoneDigitsMatch ? phoneDigitsMatch[0].replace(/\D/g, '').slice(-10) : '9390003955');
 
   from = from.replace(/[^\w\s\.-]/gi, '').trim().slice(0, 30) || 'Hyderabad';
@@ -64,7 +64,7 @@ const buildLoadNotificationTemplate = (messageText = '', templateName = 'load_di
   freight = freight.replace(/[^\w\s\.-]/gi, '').trim().slice(0, 20) || '42000';
   contact = contact.slice(-10) || '9390003955';
 
-  const name = templateName || 'load_notification';
+  const name = templateName || 'new_load_available_utility';
   return {
     name,
     language: { code: 'en' },
@@ -128,13 +128,19 @@ const sendMessage = async (config = {}, { to, message, type = 'text', mediaUrl, 
       const errorData = error.response?.data || {};
 
       if (status === 400 && payload.type === 'text') {
-        console.log('Text send returned 400. Automatically falling back to approved load_notification template...');
+        console.log('Text send returned 400. Automatically falling back to approved UTILITY template...');
         payload = {
           messaging_product: 'whatsapp',
           to: normalizeWhatsAppNumber(to),
           type: 'template',
-          template: buildLoadNotificationTemplate(message),
+          template: buildLoadNotificationTemplate(message, 'new_load_available_utility'),
         };
+        continue;
+      }
+
+      if ((status === 404 || status === 400) && payload.type === 'template' && payload.template?.name === 'new_load_available_utility') {
+        console.log('new_load_available_utility template is pending review at Meta. Falling back to approved chitkotelog_load_utility...');
+        payload.template = buildLoadNotificationTemplate(message, 'chitkotelog_load_utility');
         continue;
       }
 

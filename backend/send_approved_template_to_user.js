@@ -2,7 +2,7 @@ const axios = require('axios');
 
 (async () => {
   const base = 'http://localhost:5000/api';
-  const recipient = '919730361798';
+  const recipient = '918329747902';
 
   console.log(`Sending approved Meta template load_notification to ${recipient}...`);
 

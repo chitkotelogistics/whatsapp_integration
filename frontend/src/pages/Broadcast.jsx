@@ -1,38 +1,87 @@
 import { useEffect, useMemo, useState } from 'react';
-import { broadcast, broadcastVoiceCalls, createGroup, deleteGroup, clearAllGroups, getContacts, getGroups, getGroupContacts, getLoads, makeVoiceCall } from '../services/api';
+import { broadcast, broadcastVoiceCalls, createGroup, deleteGroup, clearAllGroups, getContacts, importContacts, getGroups, getGroupContacts, getLoads, makeVoiceCall } from '../services/api';
 import * as XLSX from 'xlsx';
+
+const HEADER_ALIASES = {
+  name: ['name', 'contactname', 'full_name', 'contact_name', 'fullname', 'customer_name'],
+  mobile: ['mobile', 'phone', 'phone_number', 'contact_number', 'contactmobile', 'whatsapp', 'wa_number'],
+  company: ['company', 'organisation', 'organization', 'firm'],
+  city: ['city', 'town', 'location'],
+  state: ['state', 'province', 'region'],
+  vehicleType: ['vehicle_type', 'vehicletype', 'vehicle', 'truck_type'],
+};
+
+const normalizeHeader = (value = '') => String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
+
+const normalizePhone = (value = '') => {
+  const cleaned = String(value).replace(/\D/g, '');
+  if (!cleaned) return '';
+  if (cleaned.length === 10) return `91${cleaned}`;
+  if (cleaned.length === 11 && cleaned.startsWith('0')) return `91${cleaned.slice(1)}`;
+  if (cleaned.length === 12 && cleaned.startsWith('91')) return cleaned;
+  return cleaned;
+};
+
+const getFieldValue = (record = {}, aliases = []) => {
+  const key = aliases.find((alias) => record[alias] !== undefined && record[alias] !== null && String(record[alias]).trim() !== '');
+  return key ? String(record[key]).trim() : '';
+};
+
+const mapRecord = (record = {}) => {
+  const normalizedRecord = {};
+  Object.keys(record).forEach((key) => {
+    normalizedRecord[normalizeHeader(key)] = record[key];
+  });
+
+  return {
+    name: getFieldValue(normalizedRecord, HEADER_ALIASES.name) || '',
+    mobile: normalizePhone(getFieldValue(normalizedRecord, HEADER_ALIASES.mobile) || ''),
+    company: getFieldValue(normalizedRecord, HEADER_ALIASES.company) || '',
+    city: getFieldValue(normalizedRecord, HEADER_ALIASES.city) || '',
+    state: getFieldValue(normalizedRecord, HEADER_ALIASES.state) || '',
+    vehicleType: getFieldValue(normalizedRecord, HEADER_ALIASES.vehicleType) || '',
+  };
+};
 
 const formatLoadForBroadcast = (l) => {
   if (!l) return '';
   const text = l.message || l.message_body || '';
-  if (text.includes('Chitkote Logistics') && text.includes('Pickup City:')) {
+  if (text.includes('New Load Available') && text.includes('Load Details:')) {
     return text;
   }
-  const contactNum = l.contactPerson ? `${l.contactPerson} ${l.contactNumber || l.contact_number || '9390003955'}`.trim() : (l.contactNumber || l.contact_number || '9390003955');
+  let contactNum = l.contactNumber || l.contact_number || '9390003955';
+  contactNum = String(contactNum).replace(/\D/g, '').slice(-10) || '9390003955';
+
   return [
-    '*🚚 Chitkote Logistics Load Available*',
+    '🚛 *New Load Available*',
     '',
-    `📍 Pickup City: ${l.from || l.from_city || 'Chennai'}`,
-    `📍 Delivery City: ${l.to || l.to_city || 'Coimbatore'}`,
-    `🚚 Vehicle Type Required: ${l.vehicleType || l.vehicle_type || '32 FT Open Truck'}`,
-    `⚖️ Shipment Weight: ${l.weight || '25 Tons'}`,
-    `💰 Agreed Freight Rate: ${l.freight || '42000'}`,
-    `📞 Direct Contact Phone: ${contactNum}`,
+    '*Load Details:*',
     '',
-    'Please call or reply to this message if you are available to accept this load.',
+    `📍 *Pickup:* ${l.from || l.from_city || 'Hyderabad'}`,
+    `📍 *Delivery:* ${l.to || l.to_city || 'Chennai'}`,
+    `🚚 *Vehicle Required:* ${l.vehicleType || l.vehicle_type || '32 FT Open Truck'}`,
+    `⚖️ *Weight:* ${l.weight || '25 Tons'}`,
+    `💰 *Freight:* ₹${String(l.freight || '42000').replace(/[^\d\.]/g, '') || '42000'}`,
+    '',
+    `📞 *Contact:* ${contactNum}`,
+    '',
+    'This is an automated load notification from *Chitkote Logistics India Private Limited*.',
   ].join('\n');
 };
 
-const defaultBroadcastMessage = `*🚚 Chitkote Logistics Load Available*
+const defaultBroadcastMessage = `🚛 *New Load Available*
 
-📍 Pickup City: Hyderabad
-📍 Delivery City: Chennai
-🚚 Vehicle Type Required: 32 FT Open Truck
-⚖️ Shipment Weight: 25 Tons
-💰 Agreed Freight Rate: 42000
-📞 Direct Contact Phone: 9390003955
+*Load Details:*
 
-Please call or reply to this message if you are available to accept this load.`;
+📍 *Pickup:* Hyderabad
+📍 *Delivery:* Chennai
+🚚 *Vehicle Required:* 32 FT Open Truck
+⚖️ *Weight:* 25 Tons
+💰 *Freight:* ₹42000
+
+📞 *Contact:* 9390003955
+
+This is an automated load notification from *Chitkote Logistics India Private Limited*.`;
 
 const Broadcast = () => {
   const [contacts, setContacts] = useState([]);
@@ -60,26 +109,23 @@ const Broadcast = () => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
-        
-        const extracted = data.map((row) => {
-          const keys = Object.keys(row);
-          const nameKey = keys.find(k => k.toLowerCase().includes('name')) || keys[0];
-          const phoneKey = keys.find(k => k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile') || k.toLowerCase().includes('contact')) || keys[1];
-          return {
-            name: row[nameKey] || 'Unknown',
-            mobile: String(row[phoneKey] || '').replace(/\D/g, '')
-          };
-        }).filter(c => c.mobile.length >= 10);
-        
-        setRawContacts(extracted);
-        showToast(`✅ Extracted ${extracted.length} contacts from Excel file.`);
+
+        const mappedRows = data.map(mapRecord).filter((c) => c.mobile && c.mobile.length >= 10);
+        if (!mappedRows.length) {
+          showToast('❌ No valid contacts found in the uploaded file.', 'error');
+          return;
+        }
+
+        const res = await importContacts({ contacts: mappedRows });
+        await loadContacts();
+        showToast(`✅ Imported ${res.data.imported || mappedRows.length} contacts to Database & ready for broadcast!`);
       } catch (err) {
         showToast(`❌ Failed to parse Excel file: ${err.message}`, 'error');
       }
@@ -91,16 +137,19 @@ const Broadcast = () => {
     const newQl = { ...quickLoad, [field]: value };
     setQuickLoad(newQl);
     setMessage([
-      '*🚚 Chitkote Logistics Load Available*',
+      '🚛 *New Load Available*',
       '',
-      `📍 Pickup City: ${newQl.from || '...'}`,
-      `📍 Delivery City: ${newQl.to || '...'}`,
-      `🚚 Vehicle Type Required: ${newQl.vehicleType || '...'}`,
-      `⚖️ Shipment Weight: ${newQl.weight || '...'}`,
-      `💰 Agreed Freight Rate: ${newQl.freight || '...'}`,
-      `📞 Direct Contact Phone: 9390003955`,
+      '*Load Details:*',
       '',
-      'Please call or reply to this message if you are available to accept this load.',
+      `📍 *Pickup:* ${newQl.from || 'Hyderabad'}`,
+      `📍 *Delivery:* ${newQl.to || 'Chennai'}`,
+      `🚚 *Vehicle Required:* ${newQl.vehicleType || '32 FT Open Truck'}`,
+      `⚖️ *Weight:* ${newQl.weight || '25 Tons'}`,
+      `💰 *Freight:* ₹${String(newQl.freight || '42000').replace(/[^\d\.]/g, '') || '42000'}`,
+      '',
+      '📞 *Contact:* 9390003955',
+      '',
+      'This is an automated load notification from *Chitkote Logistics India Private Limited*.',
     ].join('\n'));
   };
 
@@ -203,7 +252,7 @@ const Broadcast = () => {
         rawContacts: rawContacts.map(c => ({ name: c.name, mobile: c.mobile })), 
         message, 
         scheduledAt: scheduledAt || undefined,
-        type: 'template' // Force template for business-initiated messages
+        type: 'template' // Approved Meta template for outreach to all contacts (including those who haven't messaged 'hi')
       });
       setProgress(100);
       processBroadcastResponse(res.data);

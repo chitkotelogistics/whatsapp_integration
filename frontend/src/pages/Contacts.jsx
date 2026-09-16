@@ -389,6 +389,13 @@ const Contacts = () => {
               Upload CSV / XLSX File
               <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileImport} />
             </label>
+            <a
+              href="/sample_contacts_template.csv"
+              download="sample_contacts_template.csv"
+              className="rounded-lg bg-indigo-900/60 border border-indigo-700 px-3.5 py-2 text-xs font-medium text-indigo-200 hover:bg-indigo-800"
+            >
+              📥 Download Sample CSV Template
+            </a>
             <span className="text-xs font-mono text-cyan-400">{selectedFileName}</span>
           </div>
         </div>
