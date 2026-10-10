@@ -2,7 +2,7 @@ const db = require('../config/db');
 const { generateLoadId, formatWhatsAppMessage } = require('../utils/helpers');
 const { sendMessage, queueSend, validateContacts, buildLoadNotificationTemplate } = require('../services/whatsappService');
 const { getSettingsConfig } = require('../services/settingsService');
-const { readFallbackLoads, writeFallbackLoads, readFallbackContacts, writeFallbackContacts, readFallbackSettings, writeFallbackSettings, readFallbackLogs, writeFallbackLogs, readFallbackInbound, writeFallbackInbound } = require('../utils/fileStore');
+const { readFallbackLoads, writeFallbackLoads, readFallbackContacts, writeFallbackContacts, readFallbackSettings, writeFallbackSettings, readFallbackLogs, writeFallbackLogs, readFallbackInbound, writeFallbackInbound, readFallbackDrafts, writeFallbackDrafts } = require('../utils/fileStore');
 
 const memoryLogs = [];
 
@@ -136,29 +136,56 @@ const getLoads = async (_req, res) => {
 };
 
 const createLoad = async (req, res) => {
-  const loadId = generateLoadId();
-  const messageBody = formatWhatsAppMessage({ ...req.body, loadId });
+  const loadId = req.body.loadId || req.body.load_id || generateLoadId();
+  const messageBody = req.body.message || req.body.message_body || formatWhatsAppMessage({ ...req.body, loadId });
+
+  const party_id = req.body.party_id ? Number(req.body.party_id) : null;
+  const party_rate = req.body.party_rate ? Number(req.body.party_rate) : (req.body.freight ? Number(String(req.body.freight).replace(/\D/g, '')) || 0 : 0);
+  const transporter_id = req.body.transporter_id ? Number(req.body.transporter_id) : null;
+  const transporter_rate = req.body.transporter_rate ? Number(req.body.transporter_rate) : 0;
+  const ck_margin = (party_rate && transporter_rate) ? (party_rate - transporter_rate) : (req.body.ck_margin ? Number(req.body.ck_margin) : 0);
+  const vehicle_id = req.body.vehicle_id ? Number(req.body.vehicle_id) : null;
+  const driver_id = req.body.driver_id ? Number(req.body.driver_id) : null;
+  const status = req.body.status || 'LOAD_CREATED';
+  const required_documents = req.body.required_documents || {
+    rc: true,
+    insurance: true,
+    puc: true,
+    driver_license: true,
+    permit: false,
+    fitness: false,
+  };
 
   const loadObj = {
     id: Date.now(),
     loadId,
+    load_id: loadId,
     message: messageBody,
     message_body: messageBody,
-    from: req.body.from,
-    from_city: req.body.from,
-    to: req.body.to,
-    to_city: req.body.to,
+    from: req.body.from || req.body.from_city,
+    from_city: req.body.from || req.body.from_city,
+    to: req.body.to || req.body.to_city,
+    to_city: req.body.to || req.body.to_city,
     material: req.body.material,
     weight: req.body.weight,
-    vehicleType: req.body.vehicleType,
-    vehicle_type: req.body.vehicleType,
-    loadingDate: req.body.loadingDate,
-    loading_date: req.body.loadingDate,
-    freight: req.body.freight,
-    contactPerson: req.body.contactPerson,
-    contact_person: req.body.contactPerson,
-    contactNumber: req.body.contactNumber,
-    contact_number: req.body.contactNumber,
+    vehicleType: req.body.vehicleType || req.body.vehicle_type,
+    vehicle_type: req.body.vehicleType || req.body.vehicle_type,
+    loadingDate: req.body.loadingDate || req.body.loading_date,
+    loading_date: req.body.loadingDate || req.body.loading_date,
+    freight: req.body.freight || String(party_rate || transporter_rate || ''),
+    contactPerson: req.body.contactPerson || req.body.contact_person,
+    contact_person: req.body.contactPerson || req.body.contact_person,
+    contactNumber: req.body.contactNumber || req.body.contact_number,
+    contact_number: req.body.contactNumber || req.body.contact_number,
+    party_id,
+    party_rate,
+    transporter_id,
+    transporter_rate,
+    ck_margin,
+    vehicle_id,
+    driver_id,
+    status,
+    required_documents,
     created_at: new Date().toISOString(),
     fallback: true,
   };
@@ -168,19 +195,30 @@ const createLoad = async (req, res) => {
 
   try {
     const [result] = await db.execute(
-      'INSERT INTO loads (from_city, to_city, material, weight, vehicle_type, loading_date, freight, contact_person, contact_number, load_id, message_body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      `INSERT INTO loads 
+       (from_city, to_city, material, weight, vehicle_type, loading_date, freight, contact_person, contact_number, load_id, message_body, party_id, party_rate, transporter_id, transporter_rate, ck_margin, vehicle_id, driver_id, status, required_documents) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        req.body.from,
-        req.body.to,
-        req.body.material,
-        req.body.weight,
-        req.body.vehicleType,
-        req.body.loadingDate,
-        req.body.freight,
-        req.body.contactPerson,
-        req.body.contactNumber,
+        loadObj.from_city,
+        loadObj.to_city,
+        loadObj.material,
+        loadObj.weight,
+        loadObj.vehicle_type,
+        loadObj.loading_date,
+        loadObj.freight,
+        loadObj.contact_person,
+        loadObj.contact_number,
         loadId,
         messageBody,
+        party_id,
+        party_rate,
+        transporter_id,
+        transporter_rate,
+        ck_margin,
+        vehicle_id,
+        driver_id,
+        status,
+        JSON.stringify(required_documents),
       ]
     );
     if (result && result.insertId) {
@@ -195,20 +233,49 @@ const createLoad = async (req, res) => {
 
 const updateLoad = async (req, res) => {
   const { id } = req.params;
+  const party_id = req.body.party_id ? Number(req.body.party_id) : null;
+  const party_rate = req.body.party_rate !== undefined ? Number(req.body.party_rate) : undefined;
+  const transporter_id = req.body.transporter_id ? Number(req.body.transporter_id) : null;
+  const transporter_rate = req.body.transporter_rate !== undefined ? Number(req.body.transporter_rate) : undefined;
+  const vehicle_id = req.body.vehicle_id ? Number(req.body.vehicle_id) : null;
+  const driver_id = req.body.driver_id ? Number(req.body.driver_id) : null;
+  const status = req.body.status;
+  const required_documents = req.body.required_documents;
+
   try {
+    const [existing] = await db.query('SELECT * FROM loads WHERE id = ? OR load_id = ?', [id, id]);
+    const current = existing[0] || {};
+    
+    const newPartyRate = party_rate !== undefined ? party_rate : Number(current.party_rate || 0);
+    const newTransporterRate = transporter_rate !== undefined ? transporter_rate : Number(current.transporter_rate || 0);
+    const newCkMargin = (newPartyRate && newTransporterRate) ? (newPartyRate - newTransporterRate) : Number(current.ck_margin || 0);
+
     await db.execute(
-      'UPDATE loads SET from_city = ?, to_city = ?, material = ?, weight = ?, vehicle_type = ?, loading_date = ?, freight = ?, contact_person = ?, contact_number = ?, message_body = ? WHERE id = ?',
+      `UPDATE loads SET 
+       from_city = ?, to_city = ?, material = ?, weight = ?, vehicle_type = ?, loading_date = ?, freight = ?, contact_person = ?, contact_number = ?, message_body = ?,
+       party_id = ?, party_rate = ?, transporter_id = ?, transporter_rate = ?, ck_margin = ?, vehicle_id = ?, driver_id = ?, status = COALESCE(?, status), required_documents = COALESCE(?, required_documents)
+       WHERE id = ? OR load_id = ?`,
       [
-        req.body.from,
-        req.body.to,
-        req.body.material,
-        req.body.weight,
-        req.body.vehicleType,
-        req.body.loadingDate,
-        req.body.freight,
-        req.body.contactPerson,
-        req.body.contactNumber,
-        req.body.message || formatWhatsAppMessage({ ...req.body, loadId: req.body.loadId }),
+        req.body.from || req.body.from_city || current.from_city,
+        req.body.to || req.body.to_city || current.to_city,
+        req.body.material || current.material,
+        req.body.weight || current.weight,
+        req.body.vehicleType || req.body.vehicle_type || current.vehicle_type,
+        req.body.loadingDate || req.body.loading_date || current.loading_date,
+        req.body.freight || current.freight,
+        req.body.contactPerson || req.body.contact_person || current.contact_person,
+        req.body.contactNumber || req.body.contact_number || current.contact_number,
+        req.body.message || formatWhatsAppMessage({ ...req.body, loadId: current.load_id || req.body.loadId }),
+        party_id || current.party_id,
+        newPartyRate,
+        transporter_id || current.transporter_id,
+        newTransporterRate,
+        newCkMargin,
+        vehicle_id || current.vehicle_id,
+        driver_id || current.driver_id,
+        status || current.status,
+        required_documents ? JSON.stringify(required_documents) : current.required_documents,
+        id,
         id,
       ]
     );
@@ -222,18 +289,36 @@ const updateLoad = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Load not found' });
     }
 
+    const cur = fallbackLoads[idx];
+    const newPartyRate = party_rate !== undefined ? party_rate : (cur.party_rate || 0);
+    const newTransporterRate = transporter_rate !== undefined ? transporter_rate : (cur.transporter_rate || 0);
+    const newCkMargin = (newPartyRate && newTransporterRate) ? (newPartyRate - newTransporterRate) : (cur.ck_margin || 0);
+
     const updated = {
-      ...fallbackLoads[idx],
-      from: req.body.from,
-      to: req.body.to,
-      material: req.body.material,
-      weight: req.body.weight,
-      vehicleType: req.body.vehicleType,
-      loadingDate: req.body.loadingDate,
-      freight: req.body.freight,
-      contactPerson: req.body.contactPerson,
-      contactNumber: req.body.contactNumber,
-      message: req.body.message || formatWhatsAppMessage({ ...req.body, loadId: fallbackLoads[idx].loadId }),
+      ...cur,
+      from: req.body.from || req.body.from_city || cur.from || cur.from_city,
+      from_city: req.body.from || req.body.from_city || cur.from || cur.from_city,
+      to: req.body.to || req.body.to_city || cur.to || cur.to_city,
+      to_city: req.body.to || req.body.to_city || cur.to || cur.to_city,
+      material: req.body.material || cur.material,
+      weight: req.body.weight || cur.weight,
+      vehicleType: req.body.vehicleType || req.body.vehicle_type || cur.vehicleType,
+      vehicle_type: req.body.vehicleType || req.body.vehicle_type || cur.vehicle_type,
+      loadingDate: req.body.loadingDate || req.body.loading_date || cur.loadingDate,
+      loading_date: req.body.loadingDate || req.body.loading_date || cur.loading_date,
+      freight: req.body.freight || cur.freight,
+      contactPerson: req.body.contactPerson || req.body.contact_person || cur.contactPerson,
+      contactNumber: req.body.contactNumber || req.body.contact_number || cur.contactNumber,
+      party_id: party_id || cur.party_id,
+      party_rate: newPartyRate,
+      transporter_id: transporter_id || cur.transporter_id,
+      transporter_rate: newTransporterRate,
+      ck_margin: newCkMargin,
+      vehicle_id: vehicle_id || cur.vehicle_id,
+      driver_id: driver_id || cur.driver_id,
+      status: status || cur.status || 'LOAD_CREATED',
+      required_documents: required_documents || cur.required_documents,
+      message: req.body.message || formatWhatsAppMessage({ ...req.body, loadId: cur.loadId }),
       updated_at: new Date().toISOString(),
     };
 
@@ -242,6 +327,7 @@ const updateLoad = async (req, res) => {
     return res.json({ success: true, fallback: true, load: updated });
   }
 };
+
 
 const deleteLoad = async (req, res) => {
   const { id } = req.params;
@@ -706,12 +792,13 @@ const webhook = async (req, res) => {
               const inboundList = readFallbackInbound();
               const contactList = readFallbackContacts();
               const isAlreadySaved = contactList.some((c) => normalizePhone(c.mobile) === normalizedFrom);
+              const senderName = val.contacts?.[0]?.profile?.name || `Driver (${normalizedFrom.slice(-10)})`;
 
               const inboundEntry = {
                 id: Date.now(),
                 mobile: normalizedFrom,
                 message: textBody,
-                sender_name: val.contacts?.[0]?.profile?.name || `Driver (${normalizedFrom.slice(-10)})`,
+                sender_name: senderName,
                 is_saved: isAlreadySaved ? 1 : 0,
                 created_at: new Date().toISOString(),
               };
@@ -725,6 +812,55 @@ const webhook = async (req, res) => {
               } catch (e) {
                 // DB write optional
               }
+
+              // ===============================================
+              // AUTO QUOTE DETECTION & LOAD NEGOTIATION LINKING
+              // ===============================================
+              const loads = readFallbackLoads();
+              const loadMatch = textBody.match(/CK-\d+/i);
+              const targetLoad = loadMatch
+                ? loads.find((l) => String(l.load_id || l.loadId).toUpperCase() === loadMatch[0].toUpperCase())
+                : loads[0];
+
+              if (targetLoad) {
+                const targetLoadId = targetLoad.load_id || targetLoad.loadId;
+
+                // Detect numeric rate quote (e.g. "38000", "₹38,000", "38k", "38000 final")
+                const rateMatch = textBody.match(/(?:₹|rs\.?|rate\s*:?\s*)?\s*(\d{2,3}(?:,\d{3})+|\d{4,6}|\d{2}\s*k)/i);
+                if (rateMatch) {
+                  let rawNumStr = rateMatch[1].toLowerCase().replace(/,/g, '').trim();
+                  if (rawNumStr.endsWith('k')) {
+                    rawNumStr = String(parseFloat(rawNumStr) * 1000);
+                  }
+                  const extractedRate = Number(rawNumStr);
+
+                  if (!isNaN(extractedRate) && extractedRate >= 5000 && extractedRate <= 500000) {
+                    const quoteObj = {
+                      id: Date.now(),
+                      load_id: targetLoadId,
+                      transporter_mobile: normalizedFrom,
+                      transporter_name: senderName,
+                      offered_rate: extractedRate,
+                      status: 'PENDING',
+                      notes: `Auto-captured via WhatsApp: "${textBody}"`,
+                      created_at: new Date().toISOString(),
+                    };
+
+                    try {
+                      await db.execute(
+                        `INSERT INTO load_negotiations (load_id, transporter_mobile, transporter_name, offered_rate, status, notes) VALUES (?, ?, ?, ?, ?, ?)`,
+                        [quoteObj.load_id, quoteObj.transporter_mobile, quoteObj.transporter_name, quoteObj.offered_rate, quoteObj.status, quoteObj.notes]
+                      );
+                    } catch (negDbErr) {}
+
+                    const { readFallbackNegotiations, writeFallbackNegotiations } = require('../utils/fileStore');
+                    const fallbackNegs = readFallbackNegotiations();
+                    writeFallbackNegotiations([quoteObj, ...fallbackNegs]);
+
+                    console.log(`✓ Auto-captured Quote ₹${extractedRate} for Load ${targetLoadId} from ${normalizedFrom}`);
+                  }
+                }
+              }
             }
 
             try {
@@ -735,9 +871,9 @@ const webhook = async (req, res) => {
 
 Hello! Thank you for reaching out to Chitkote Logistics India Private Limited. 
 
-We have received your message. Our team will share suitable load details with you shortly.
+We have received your message regarding load inquiry. Our team will review your rate / offer and reply to you shortly on WhatsApp.
 
-📞 For urgent load inquiries, please call us directly at 9390003955.`;
+📞 Urgent support call: 9390003955.`;
 
               const replyResult = await sendMessage(config, {
                 to: normalizedFrom,
@@ -765,6 +901,7 @@ We have received your message. Our team will share suitable load details with yo
 
   res.status(200).json({ success: true });
 };
+
 
 const getInboundMessages = async (req, res) => {
   const fallback = readFallbackInbound();
@@ -829,6 +966,74 @@ const saveInboundAsContact = async (req, res) => {
   res.json({ success: true, contact: contactObj });
 };
 
+const getMessageDrafts = async (_req, res) => {
+  const fallbackDrafts = readFallbackDrafts();
+  try {
+    const [rows] = await db.query('SELECT * FROM message_drafts ORDER BY updated_at DESC');
+    res.json(rows && rows.length ? rows : fallbackDrafts);
+  } catch (error) {
+    res.json(fallbackDrafts);
+  }
+};
+
+const saveMessageDraft = async (req, res) => {
+  const { id, title, planType, planDate, greeting, language, selectedLoads, messageText, settings } = req.body;
+  const draftId = id || Date.now();
+  const draftObj = {
+    id: draftId,
+    title: title || `Draft ${new Date().toLocaleDateString('en-IN')}`,
+    plan_type: planType || 'today',
+    plan_date: planDate || '',
+    greeting: greeting || 'Good Morning',
+    language: language || 'en',
+    selected_loads: selectedLoads || [],
+    message_text: messageText || '',
+    settings: settings || {},
+    updated_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  };
+
+  const fallbackDrafts = readFallbackDrafts();
+  const existingIdx = fallbackDrafts.findIndex((d) => String(d.id) === String(draftId));
+  if (existingIdx !== -1) {
+    fallbackDrafts[existingIdx] = { ...fallbackDrafts[existingIdx], ...draftObj };
+  } else {
+    fallbackDrafts.unshift(draftObj);
+  }
+  writeFallbackDrafts(fallbackDrafts);
+
+  try {
+    await db.execute(
+      `INSERT INTO message_drafts (id, title, plan_type, plan_date, greeting, language, selected_loads, message_text, settings)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE title = VALUES(title), plan_type = VALUES(plan_type), plan_date = VALUES(plan_date),
+       greeting = VALUES(greeting), language = VALUES(language), selected_loads = VALUES(selected_loads),
+       message_text = VALUES(message_text), settings = VALUES(settings), updated_at = NOW()`,
+      [draftId, draftObj.title, draftObj.plan_type, draftObj.plan_date, draftObj.greeting, draftObj.language,
+       JSON.stringify(draftObj.selected_loads), draftObj.message_text, JSON.stringify(draftObj.settings)]
+    );
+  } catch (dbErr) {
+    // handled via fileStore
+  }
+
+  res.status(201).json({ success: true, draft: draftObj });
+};
+
+const deleteMessageDraft = async (req, res) => {
+  const { id } = req.params;
+  const idStr = String(id).trim();
+
+  try {
+    await db.execute('DELETE FROM message_drafts WHERE id = ?', [idStr]);
+  } catch (dbErr) {}
+
+  const fallbackDrafts = readFallbackDrafts();
+  const nextDrafts = fallbackDrafts.filter((d) => String(d.id) !== idStr);
+  writeFallbackDrafts(nextDrafts);
+
+  res.json({ success: true, id: idStr });
+};
+
 module.exports = {
   getLoads,
   createLoad,
@@ -849,4 +1054,7 @@ module.exports = {
   getWebhookEvents,
   getInboundMessages,
   saveInboundAsContact,
+  getMessageDrafts,
+  saveMessageDraft,
+  deleteMessageDraft,
 };

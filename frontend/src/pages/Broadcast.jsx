@@ -1,25 +1,73 @@
 import { useEffect, useMemo, useState } from 'react';
 import { broadcast, broadcastVoiceCalls, createGroup, deleteGroup, clearAllGroups, getContacts, importContacts, getGroups, getGroupContacts, getLoads, makeVoiceCall } from '../services/api';
 import * as XLSX from 'xlsx';
+import MultiLoadBuilder from '../components/MultiLoadBuilder';
 
 const HEADER_ALIASES = {
-  name: ['name', 'contactname', 'full_name', 'contact_name', 'fullname', 'customer_name'],
-  mobile: ['mobile', 'phone', 'phone_number', 'contact_number', 'contactmobile', 'whatsapp', 'wa_number'],
-  company: ['company', 'organisation', 'organization', 'firm'],
-  city: ['city', 'town', 'location'],
-  state: ['state', 'province', 'region'],
+  name: ['name', 'contactname', 'full_name', 'contact_name', 'fullname', 'customer_name', 'first_name'],
+  mobile: ['mobile', 'phone', 'phone_number', 'contact_number', 'contactmobile', 'whatsapp', 'wa_number', 'phone_1_value', 'phone_2_value'],
+  company: ['company', 'organisation', 'organization', 'firm', 'organization_name'],
+  city: ['city', 'town', 'location', 'address_1_city'],
+  state: ['state', 'province', 'region', 'address_1_region'],
   vehicleType: ['vehicle_type', 'vehicletype', 'vehicle', 'truck_type'],
 };
 
 const normalizeHeader = (value = '') => String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
 
 const normalizePhone = (value = '') => {
-  const cleaned = String(value).replace(/\D/g, '');
+  let cleaned = String(value).replace(/\D/g, '');
   if (!cleaned) return '';
-  if (cleaned.length === 10) return `91${cleaned}`;
-  if (cleaned.length === 11 && cleaned.startsWith('0')) return `91${cleaned.slice(1)}`;
-  if (cleaned.length === 12 && cleaned.startsWith('91')) return cleaned;
+
+  if (cleaned.startsWith('9191') && cleaned.length > 12) {
+    cleaned = cleaned.slice(2);
+  }
+  if (cleaned.startsWith('91') && cleaned.length === 12) {
+    return cleaned;
+  }
+  if (cleaned.length === 10 && /^[6-9]/.test(cleaned)) {
+    return `91${cleaned}`;
+  }
+  if (cleaned.length === 11 && cleaned.startsWith('0') && /^[6-9]/.test(cleaned.slice(1))) {
+    return `91${cleaned.slice(1)}`;
+  }
+  if (cleaned.length >= 10) {
+    const last10 = cleaned.slice(-10);
+    if (/^[6-9]/.test(last10)) {
+      return `91${last10}`;
+    }
+  }
   return cleaned;
+};
+
+const detectVehicleType = (text = '') => {
+  if (!text) return 'Truck / Transport';
+  const lower = text.toLowerCase();
+  if (lower.includes('32') && (lower.includes('sxl') || lower.includes('mtxl') || lower.includes('xl') || lower.includes('multi'))) return '32 FT Multi Axle';
+  if (lower.includes('32') && (lower.includes('cont') || lower.includes('cnt'))) return '32 FT Container';
+  if (lower.includes('32')) return '32 FT Open Truck';
+  if (lower.includes('24') && (lower.includes('cont') || lower.includes('cnt'))) return '24 FT Container';
+  if (lower.includes('24')) return '24 FT Open Truck';
+  if (lower.includes('22') && (lower.includes('cont') || lower.includes('cnt'))) return '22 FT Container';
+  if (lower.includes('22')) return '22 FT Open Truck';
+  if (lower.includes('20') && (lower.includes('cont') || lower.includes('cnt'))) return '20 FT Container';
+  if (lower.includes('20')) return '20 FT Open Truck';
+  if (lower.includes('19') && (lower.includes('cont') || lower.includes('cnt'))) return '19 FT Container';
+  if (lower.includes('19')) return '19 FT Open Truck';
+  if (lower.includes('16') || lower.includes('14') || lower.includes('12') || lower.includes('10')) {
+    if (lower.includes('wheel') || lower.includes('weel') || lower.includes('veel')) {
+      const match = lower.match(/(\d+)\s*(?:wheel|weel|veel)/);
+      return match ? `${match[1]} Wheeler Truck` : '10-14 Wheeler Truck';
+    }
+    if (lower.includes('feet') || lower.includes('ft')) {
+      const match = lower.match(/(\d+)\s*(?:feet|ft)/);
+      return match ? `${match[1]} FT Truck` : '14 FT Truck';
+    }
+    if (lower.includes('t') || lower.includes('ton')) return '12-16 Ton Truck';
+  }
+  if (lower.includes('trailer') || lower.includes('trailor')) return 'Trailer';
+  if (lower.includes('container') || lower.includes('cont')) return '20/32 FT Container';
+  if (lower.includes('dcm') || lower.includes('eicher') || lower.includes('eacher')) return 'Eicher / DCM';
+  return 'Truck / Transport';
 };
 
 const getFieldValue = (record = {}, aliases = []) => {
@@ -33,55 +81,120 @@ const mapRecord = (record = {}) => {
     normalizedRecord[normalizeHeader(key)] = record[key];
   });
 
-  return {
-    name: getFieldValue(normalizedRecord, HEADER_ALIASES.name) || '',
-    mobile: normalizePhone(getFieldValue(normalizedRecord, HEADER_ALIASES.mobile) || ''),
-    company: getFieldValue(normalizedRecord, HEADER_ALIASES.company) || '',
-    city: getFieldValue(normalizedRecord, HEADER_ALIASES.city) || '',
-    state: getFieldValue(normalizedRecord, HEADER_ALIASES.state) || '',
-    vehicleType: getFieldValue(normalizedRecord, HEADER_ALIASES.vehicleType) || '',
-  };
+  const firstName = normalizedRecord.first_name || '';
+  const middleName = normalizedRecord.middle_name || '';
+  const lastName = normalizedRecord.last_name || '';
+  const combinedName = [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
+
+  // Collect all phones (Phone 1, Phone 2, Phone 3, mobile, phone)
+  const rawPhones = [
+    normalizedRecord.phone_1_value,
+    normalizedRecord.phone_2_value,
+    normalizedRecord.phone_3_value,
+    getFieldValue(normalizedRecord, HEADER_ALIASES.mobile),
+  ].filter(Boolean);
+
+  const phoneNumbers = [];
+  rawPhones.forEach((pStr) => {
+    String(pStr)
+      .split(/:::|,|\//)
+      .forEach((sub) => {
+        const norm = normalizePhone(sub);
+        if (norm && norm.length >= 10) {
+          phoneNumbers.push(norm);
+        }
+      });
+  });
+
+  const explicitName = combinedName || getFieldValue(normalizedRecord, HEADER_ALIASES.name);
+  const company = getFieldValue(normalizedRecord, HEADER_ALIASES.company) || '';
+  const explicitVehicle = getFieldValue(normalizedRecord, HEADER_ALIASES.vehicleType);
+  const city = getFieldValue(normalizedRecord, HEADER_ALIASES.city) || '';
+  const state = getFieldValue(normalizedRecord, HEADER_ALIASES.state) || '';
+
+  if (!phoneNumbers.length) {
+    return [];
+  }
+
+  return phoneNumbers.map((mobile) => {
+    const name = explicitName || company || `Driver ${mobile.slice(-4)}`;
+    const vehicleType = explicitVehicle || detectVehicleType(`${name} ${normalizedRecord.notes || ''}`);
+    return {
+      name,
+      mobile,
+      company,
+      city,
+      state,
+      vehicleType,
+    };
+  });
+};
+
+const getISTGreeting = () => {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const ist = new Date(utc + 3600000 * 5.5);
+  const hour = ist.getHours();
+  if (hour >= 4 && hour < 12) return 'Good Morning,';
+  if (hour >= 12 && hour < 17) return 'Good Afternoon,';
+  if (hour >= 17 && hour < 22) return 'Good Evening,';
+  return 'Hello,';
 };
 
 const formatLoadForBroadcast = (l) => {
   if (!l) return '';
-  const text = l.message || l.message_body || '';
-  if (text.includes('New Load Available') && text.includes('Load Details:')) {
-    return text;
-  }
-  let contactNum = l.contactNumber || l.contact_number || '9390003955';
-  contactNum = String(contactNum).replace(/\D/g, '').slice(-10) || '9390003955';
+  const greeting = getISTGreeting();
+  let contactNum = l.contactNumber || l.contact_number || '9390003955 / 9390006942';
+  const fromCity = l.from || l.from_city || 'Hyderabad';
+  const toCity = l.to || l.to_city || 'Chennai';
+  const vehicle = l.vehicleType || l.vehicle_type || '32 FT Open';
+  const weight = l.weight || '15 MT';
+  const freightVal = String(l.freight || l.transporter_rate || '45000').replace(/[^\d\.]/g, '') || '45000';
 
-  return [
-    '🚛 *New Load Available*',
+  const lines = [
+    greeting,
     '',
-    '*Load Details:*',
+    '*🚚 Chitkote Logistics Load Available*',
     '',
-    `📍 *Pickup:* ${l.from || l.from_city || 'Hyderabad'}`,
-    `📍 *Delivery:* ${l.to || l.to_city || 'Chennai'}`,
-    `🚚 *Vehicle Required:* ${l.vehicleType || l.vehicle_type || '32 FT Open Truck'}`,
-    `⚖️ *Weight:* ${l.weight || '25 Tons'}`,
-    `💰 *Freight:* ₹${String(l.freight || '42000').replace(/[^\d\.]/g, '') || '42000'}`,
-    '',
-    `📞 *Contact:* ${contactNum}`,
-    '',
-    'This is an automated load notification from *Chitkote Logistics India Private Limited*.',
-  ].join('\n');
+    `📍 Pickup: ${fromCity}`,
+    `📍 Delivery: ${toCity}`,
+    `🚛 Vehicle Required: ${vehicle}`,
+  ];
+  if (l.material) lines.push(`📦 Material: ${l.material}`);
+  if (weight) lines.push(`⚖️ Weight: ${weight}`);
+  lines.push(`💰 Freight: ₹${freightVal}`);
+  lines.push('');
+  lines.push(`📞 Contact: ${contactNum}`);
+  lines.push('');
+  lines.push('Please contact us if you are interested in any of the above loads.');
+  lines.push('');
+  lines.push('Thank you,');
+  lines.push('Chitkote Logistics');
+
+  return lines.join('\n');
 };
 
-const defaultBroadcastMessage = `🚛 *New Load Available*
-
-*Load Details:*
-
-📍 *Pickup:* Hyderabad
-📍 *Delivery:* Chennai
-🚚 *Vehicle Required:* 32 FT Open Truck
-⚖️ *Weight:* 25 Tons
-💰 *Freight:* ₹42000
-
-📞 *Contact:* 9390003955
-
-This is an automated load notification from *Chitkote Logistics India Private Limited*.`;
+const getDefaultBroadcastMessage = () => {
+  const greeting = getISTGreeting();
+  return [
+    greeting,
+    '',
+    '*🚚 Chitkote Logistics Load Available*',
+    '',
+    '📍 Pickup: Hyderabad',
+    '📍 Delivery: Chennai',
+    '🚛 Vehicle Required: 32 FT Open',
+    '⚖️ Weight: 15 MT',
+    '💰 Freight: ₹45000',
+    '',
+    '📞 Contact: 9390003955 / 9390006942',
+    '',
+    'Please contact us if you are interested in any of the above loads.',
+    '',
+    'Thank you,',
+    'Chitkote Logistics',
+  ].join('\n');
+};
 
 const Broadcast = () => {
   const [contacts, setContacts] = useState([]);
@@ -91,7 +204,7 @@ const Broadcast = () => {
   const [selected, setSelected] = useState([]);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [selectedLoadId, setSelectedLoadId] = useState('');
-  const [message, setMessage] = useState(defaultBroadcastMessage);
+  const [message, setMessage] = useState(getDefaultBroadcastMessage());
   const [scheduledAt, setScheduledAt] = useState('');
   const [progress, setProgress] = useState(0);
   const [groupName, setGroupName] = useState('');
@@ -99,6 +212,7 @@ const Broadcast = () => {
   const [directInput, setDirectInput] = useState('');
   const [rawContacts, setRawContacts] = useState([]);
   const [quickLoad, setQuickLoad] = useState({ from: '', to: '', vehicleType: '', weight: '', freight: '' });
+  const [broadcastTab, setBroadcastTab] = useState('single');
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -108,6 +222,7 @@ const Broadcast = () => {
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    showToast(`⏳ Reading and importing "${file.name}"... please wait`, 'info');
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
@@ -117,7 +232,7 @@ const Broadcast = () => {
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
 
-        const mappedRows = data.map(mapRecord).filter((c) => c.mobile && c.mobile.length >= 10);
+        const mappedRows = data.flatMap(mapRecord).filter((c) => c.mobile && c.mobile.length >= 10);
         if (!mappedRows.length) {
           showToast('❌ No valid contacts found in the uploaded file.', 'error');
           return;
@@ -125,9 +240,9 @@ const Broadcast = () => {
 
         const res = await importContacts({ contacts: mappedRows });
         await loadContacts();
-        showToast(`✅ Imported ${res.data.imported || mappedRows.length} contacts to Database & ready for broadcast!`);
+        showToast(`✅ Successfully imported ${res.data.imported || mappedRows.length} contacts for broadcast!`);
       } catch (err) {
-        showToast(`❌ Failed to parse Excel file: ${err.message}`, 'error');
+        showToast(`❌ Failed to import file: ${err.response?.data?.error || err.message}`, 'error');
       }
     };
     reader.readAsBinaryString(file);
@@ -136,21 +251,26 @@ const Broadcast = () => {
   const updateQuickLoad = (field, value) => {
     const newQl = { ...quickLoad, [field]: value };
     setQuickLoad(newQl);
-    setMessage([
-      '🚛 *New Load Available*',
+    const greeting = getISTGreeting();
+    const lines = [
+      greeting,
       '',
-      '*Load Details:*',
+      '*🚚 Chitkote Logistics Load Available*',
       '',
-      `📍 *Pickup:* ${newQl.from || 'Hyderabad'}`,
-      `📍 *Delivery:* ${newQl.to || 'Chennai'}`,
-      `🚚 *Vehicle Required:* ${newQl.vehicleType || '32 FT Open Truck'}`,
-      `⚖️ *Weight:* ${newQl.weight || '25 Tons'}`,
-      `💰 *Freight:* ₹${String(newQl.freight || '42000').replace(/[^\d\.]/g, '') || '42000'}`,
-      '',
-      '📞 *Contact:* 9390003955',
-      '',
-      'This is an automated load notification from *Chitkote Logistics India Private Limited*.',
-    ].join('\n'));
+      `📍 Pickup: ${newQl.from || 'Hyderabad'}`,
+      `📍 Delivery: ${newQl.to || 'Chennai'}`,
+      `🚛 Vehicle Required: ${newQl.vehicleType || '32 FT Open'}`,
+    ];
+    if (newQl.weight) lines.push(`⚖️ Weight: ${newQl.weight || '15 MT'}`);
+    lines.push(`💰 Freight: ₹${String(newQl.freight || '45000').replace(/[^\d\.]/g, '') || '45000'}`);
+    lines.push('');
+    lines.push(`📞 Contact: 9390003955 / 9390006942`);
+    lines.push('');
+    lines.push('Please contact us if you are interested in any of the above loads.');
+    lines.push('');
+    lines.push('Thank you,');
+    lines.push('Chitkote Logistics');
+    setMessage(lines.join('\n'));
   };
 
   const loadContacts = async () => {
@@ -252,7 +372,7 @@ const Broadcast = () => {
         rawContacts: rawContacts.map(c => ({ name: c.name, mobile: c.mobile })), 
         message, 
         scheduledAt: scheduledAt || undefined,
-        type: 'template' // Approved Meta template for outreach to all contacts (including those who haven't messaged 'hi')
+        type: 'text' // Dispatches custom formatted load message directly
       });
       setProgress(100);
       processBroadcastResponse(res.data);
@@ -372,7 +492,40 @@ const Broadcast = () => {
   };
 
   return (
-    <div className="space-y-6 rounded-xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl">
+    <div className="space-y-6">
+      {/* Broadcast Mode Header & Tabs */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/90 p-3 shadow-xl">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setBroadcastTab('single')}
+            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+              broadcastTab === 'single'
+                ? 'border border-cyan-800/80 bg-cyan-950/80 text-cyan-300 shadow-md shadow-cyan-950'
+                : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+            }`}
+          >
+            📦 Single Load Broadcast
+          </button>
+          <button
+            onClick={() => setBroadcastTab('multi')}
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+              broadcastTab === 'multi'
+                ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-lg shadow-cyan-950'
+                : 'text-cyan-400 hover:bg-cyan-950/40 hover:text-cyan-300'
+            }`}
+          >
+            ✨ Multi-Load Combined Plan
+          </button>
+        </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400">
+          Mode: <strong className="text-white">{broadcastTab === 'multi' ? 'Combined Multi-Load WhatsApp Broadcast' : 'Single Load Quick Broadcast'}</strong>
+        </div>
+      </div>
+
+      {broadcastTab === 'multi' ? (
+        <MultiLoadBuilder allLoads={loads} />
+      ) : (
+        <div className="space-y-6 rounded-xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
         <div>
           <h2 className="text-xl font-semibold text-white">Broadcast Loads & Bulk Messaging</h2>
@@ -623,6 +776,8 @@ const Broadcast = () => {
           )}
         </div>
       </div>
+    </div>
+      )}
     </div>
   );
 };

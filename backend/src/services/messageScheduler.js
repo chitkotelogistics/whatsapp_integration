@@ -23,7 +23,9 @@ const schedulePendingMessages = async () => {
     const ids = rows.map((row) => row.id);
     await db.query('UPDATE scheduled_messages SET status = ?, updated_at = NOW() WHERE id IN (?)', ['sent', ids]);
   } catch (error) {
-    console.error('Scheduled send failed:', error.message);
+    if (error.code !== 'ECONNREFUSED' && !error.message?.includes('connect')) {
+      console.error('Scheduled send failed:', error.message);
+    }
   }
 };
 

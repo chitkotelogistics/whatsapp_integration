@@ -5,35 +5,70 @@ import { createContact, deleteContact, deleteContactsBulk, getContacts, getInbou
 const emptyForm = { name: '', mobile: '', company: '', city: '', state: '', vehicleType: '' };
 
 const HEADER_ALIASES = {
-  name: ['name', 'contactname', 'full_name', 'contact_name', 'fullname', 'customer_name'],
-  mobile: ['mobile', 'phone', 'phone_number', 'contact_number', 'contactmobile', 'whatsapp', 'wa_number'],
-  company: ['company', 'organisation', 'organization', 'firm'],
-  city: ['city', 'town', 'location'],
-  state: ['state', 'province', 'region'],
+  name: ['name', 'contactname', 'full_name', 'contact_name', 'fullname', 'customer_name', 'first_name'],
+  mobile: ['mobile', 'phone', 'phone_number', 'contact_number', 'contactmobile', 'whatsapp', 'wa_number', 'phone_1_value', 'phone_2_value'],
+  company: ['company', 'organisation', 'organization', 'firm', 'organization_name'],
+  city: ['city', 'town', 'location', 'address_1_city'],
+  state: ['state', 'province', 'region', 'address_1_region'],
   vehicleType: ['vehicle_type', 'vehicletype', 'vehicle', 'truck_type'],
 };
 
 const normalizeHeader = (value = '') => String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
 
 const normalizePhone = (value = '') => {
-  const cleaned = String(value).replace(/\D/g, '');
-  if (!cleaned) {
-    return '';
-  }
+  let cleaned = String(value).replace(/\D/g, '');
+  if (!cleaned) return '';
 
+  if (cleaned.startsWith('9191') && cleaned.length > 12) {
+    cleaned = cleaned.slice(2);
+  }
   if (cleaned.startsWith('91') && cleaned.length === 12) {
     return cleaned;
   }
-
-  if (cleaned.length === 10) {
+  if (cleaned.length === 10 && /^[6-9]/.test(cleaned)) {
     return `91${cleaned}`;
   }
-
-  if (cleaned.length === 11 && cleaned.startsWith('0')) {
+  if (cleaned.length === 11 && cleaned.startsWith('0') && /^[6-9]/.test(cleaned.slice(1))) {
     return `91${cleaned.slice(1)}`;
   }
-
+  if (cleaned.length >= 10) {
+    const last10 = cleaned.slice(-10);
+    if (/^[6-9]/.test(last10)) {
+      return `91${last10}`;
+    }
+  }
   return cleaned;
+};
+
+const detectVehicleType = (text = '') => {
+  if (!text) return 'Truck / Transport';
+  const lower = text.toLowerCase();
+  if (lower.includes('32') && (lower.includes('sxl') || lower.includes('mtxl') || lower.includes('xl') || lower.includes('multi'))) return '32 FT Multi Axle';
+  if (lower.includes('32') && (lower.includes('cont') || lower.includes('cnt'))) return '32 FT Container';
+  if (lower.includes('32')) return '32 FT Open Truck';
+  if (lower.includes('24') && (lower.includes('cont') || lower.includes('cnt'))) return '24 FT Container';
+  if (lower.includes('24')) return '24 FT Open Truck';
+  if (lower.includes('22') && (lower.includes('cont') || lower.includes('cnt'))) return '22 FT Container';
+  if (lower.includes('22')) return '22 FT Open Truck';
+  if (lower.includes('20') && (lower.includes('cont') || lower.includes('cnt'))) return '20 FT Container';
+  if (lower.includes('20')) return '20 FT Open Truck';
+  if (lower.includes('19') && (lower.includes('cont') || lower.includes('cnt'))) return '19 FT Container';
+  if (lower.includes('19')) return '19 FT Open Truck';
+  if (lower.includes('16') || lower.includes('14') || lower.includes('12') || lower.includes('10')) {
+    if (lower.includes('wheel') || lower.includes('weel') || lower.includes('veel')) {
+      const match = lower.match(/(\d+)\s*(?:wheel|weel|veel)/);
+      return match ? `${match[1]} Wheeler Truck` : '10-14 Wheeler Truck';
+    }
+    if (lower.includes('feet') || lower.includes('ft')) {
+      const match = lower.match(/(\d+)\s*(?:feet|ft)/);
+      return match ? `${match[1]} FT Truck` : '14 FT Truck';
+    }
+    if (lower.includes('t') || lower.includes('ton')) return '12-16 Ton Truck';
+  }
+  if (lower.includes('trailer') || lower.includes('trailor')) return 'Trailer';
+  if (lower.includes('container') || lower.includes('cont')) return '20/32 FT Container';
+  if (lower.includes('dcm') || lower.includes('eicher') || lower.includes('eacher')) return 'Eicher / DCM';
+  return 'Truck / Transport';
 };
 
 const getFieldValue = (record = {}, aliases = []) => {
@@ -47,14 +82,54 @@ const mapRecord = (record = {}) => {
     normalizedRecord[normalizeHeader(key)] = record[key];
   });
 
-  return {
-    name: getFieldValue(normalizedRecord, HEADER_ALIASES.name) || '',
-    mobile: normalizePhone(getFieldValue(normalizedRecord, HEADER_ALIASES.mobile) || ''),
-    company: getFieldValue(normalizedRecord, HEADER_ALIASES.company) || '',
-    city: getFieldValue(normalizedRecord, HEADER_ALIASES.city) || '',
-    state: getFieldValue(normalizedRecord, HEADER_ALIASES.state) || '',
-    vehicleType: getFieldValue(normalizedRecord, HEADER_ALIASES.vehicleType) || '',
-  };
+  // Check Google Contacts combined name
+  const firstName = normalizedRecord.first_name || '';
+  const middleName = normalizedRecord.middle_name || '';
+  const lastName = normalizedRecord.last_name || '';
+  const combinedName = [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
+
+  // Collect all phones (Phone 1, Phone 2, Phone 3, mobile, phone)
+  const rawPhones = [
+    normalizedRecord.phone_1_value,
+    normalizedRecord.phone_2_value,
+    normalizedRecord.phone_3_value,
+    getFieldValue(normalizedRecord, HEADER_ALIASES.mobile),
+  ].filter(Boolean);
+
+  const phoneNumbers = [];
+  rawPhones.forEach((pStr) => {
+    String(pStr)
+      .split(/:::|,|\//)
+      .forEach((sub) => {
+        const norm = normalizePhone(sub);
+        if (norm && norm.length >= 10) {
+          phoneNumbers.push(norm);
+        }
+      });
+  });
+
+  const explicitName = combinedName || getFieldValue(normalizedRecord, HEADER_ALIASES.name);
+  const company = getFieldValue(normalizedRecord, HEADER_ALIASES.company) || '';
+  const explicitVehicle = getFieldValue(normalizedRecord, HEADER_ALIASES.vehicleType);
+  const city = getFieldValue(normalizedRecord, HEADER_ALIASES.city) || '';
+  const state = getFieldValue(normalizedRecord, HEADER_ALIASES.state) || '';
+
+  if (!phoneNumbers.length) {
+    return [];
+  }
+
+  return phoneNumbers.map((mobile) => {
+    const name = explicitName || company || `Driver ${mobile.slice(-4)}`;
+    const vehicleType = explicitVehicle || detectVehicleType(`${name} ${normalizedRecord.notes || ''}`);
+    return {
+      name,
+      mobile,
+      company,
+      city,
+      state,
+      vehicleType,
+    };
+  });
 };
 
 const dedupeContacts = (rows = [], existingContacts = []) => {
@@ -86,6 +161,7 @@ const Contacts = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [isImporting, setIsImporting] = useState(false);
   const [messageText, setMessageText] = useState('What can I help you today?');
   const [csvText, setCsvText] = useState('name,mobile,company,city,state,vehicleType\nAmit,9730361798,Chitkote,Chennai,TN,Truck');
   const [selectedFileName, setSelectedFileName] = useState('No file selected');
@@ -232,17 +308,24 @@ const Contacts = () => {
   };
 
   const handleImportRows = async (rows = []) => {
-    const mappedRows = rows.map((row) => mapRecord(row)).filter((row) => row.name || row.mobile);
-    const { uniqueRows, duplicatesSkipped } = dedupeContacts(mappedRows, contacts);
+    setIsImporting(true);
+    try {
+      const mappedRows = rows.flatMap((row) => mapRecord(row)).filter((row) => row.name || row.mobile);
+      const { uniqueRows, duplicatesSkipped } = dedupeContacts(mappedRows, contacts);
 
-    if (!uniqueRows.length) {
-      alert(`No new contacts were imported. ${duplicatesSkipped.length} duplicate rows were skipped.`);
-      return;
+      if (!uniqueRows.length) {
+        alert(`No new contacts were imported. ${duplicatesSkipped.length} duplicate rows were skipped.`);
+        return;
+      }
+
+      const res = await importContacts({ contacts: uniqueRows });
+      await loadContacts();
+      alert(`✅ Successfully imported ${res.data.imported || uniqueRows.length} contacts! Skipped ${duplicatesSkipped.length} duplicates.`);
+    } catch (err) {
+      alert(`❌ Import error: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setIsImporting(false);
     }
-
-    const res = await importContacts({ contacts: uniqueRows });
-    await loadContacts();
-    alert(`Imported ${res.data.imported} contacts. Skipped ${duplicatesSkipped.length} duplicates.`);
   };
 
   const handleCsvImport = async () => {
@@ -277,18 +360,18 @@ const Contacts = () => {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
         const textPreview = XLSX.utils.sheet_to_csv(sheet);
-        setCsvText(textPreview);
+        setCsvText(textPreview.slice(0, 3000) + (textPreview.length > 3000 ? '\n... [preview truncated for speed]' : ''));
         await handleImportRows(rows);
       } else {
         const text = await file.text();
-        setCsvText(text);
+        setCsvText(text.slice(0, 3000) + (text.length > 3000 ? '\n... [preview truncated for speed]' : ''));
         const workbook = XLSX.read(text, { type: 'string' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
         await handleImportRows(rows);
       }
     } catch (error) {
-      alert('Unable to read the uploaded spreadsheet. Please try a CSV or Excel file.');
+      alert(`Unable to read the uploaded spreadsheet: ${error.message}`);
     }
   };
 
@@ -390,14 +473,26 @@ const Contacts = () => {
               <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileImport} />
             </label>
             <a
+              href="/google_contacts_broadcast.csv"
+              download="google_contacts_broadcast.csv"
+              className="rounded-lg bg-emerald-900/60 border border-emerald-700 px-3.5 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-800"
+            >
+              📥 Download Formatted Google Contacts (4,640)
+            </a>
+            <a
               href="/sample_contacts_template.csv"
               download="sample_contacts_template.csv"
               className="rounded-lg bg-indigo-900/60 border border-indigo-700 px-3.5 py-2 text-xs font-medium text-indigo-200 hover:bg-indigo-800"
             >
-              📥 Download Sample CSV Template
+              📥 Sample CSV Template
             </a>
             <span className="text-xs font-mono text-cyan-400">{selectedFileName}</span>
           </div>
+          {isImporting && (
+            <div className="flex items-center gap-2 rounded-lg bg-cyan-950/80 border border-cyan-800 p-3 text-xs text-cyan-300 animate-pulse">
+              <span>⏳ Processing and uploading contacts to database... please wait.</span>
+            </div>
+          )}
         </div>
       )}
 

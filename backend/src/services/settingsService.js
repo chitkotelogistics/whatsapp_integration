@@ -12,10 +12,10 @@ const getSettingsConfig = async () => {
     row = {};
   }
 
-  const phoneNumberId = row.phone_number_id || fallback.phone_number_id || process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const businessAccountId = row.business_account_id || fallback.business_account_id || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
-  const accessToken = row.access_token || fallback.access_token || process.env.WHATSAPP_ACCESS_TOKEN;
-  const webhookVerifyToken = row.webhook_verify_token || fallback.webhook_verify_token || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || row.phone_number_id || fallback.phone_number_id;
+  const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || row.business_account_id || fallback.business_account_id;
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || row.access_token || fallback.access_token;
+  const webhookVerifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || row.webhook_verify_token || fallback.webhook_verify_token;
 
   const config = {
     API_BASE_URL: process.env.WHATSAPP_API_BASE_URL || 'https://graph.facebook.com',

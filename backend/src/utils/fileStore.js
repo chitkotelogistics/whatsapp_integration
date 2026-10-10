@@ -10,6 +10,15 @@ const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const LOGS_FILE = path.join(DATA_DIR, 'message_logs.json');
 const INBOUND_FILE = path.join(DATA_DIR, 'inbound_messages.json');
 
+const PARTIES_FILE = path.join(DATA_DIR, 'parties.json');
+const TRANSPORTERS_FILE = path.join(DATA_DIR, 'transporters.json');
+const VEHICLES_FILE = path.join(DATA_DIR, 'vehicles.json');
+const DRIVERS_FILE = path.join(DATA_DIR, 'drivers.json');
+const NEGOTIATIONS_FILE = path.join(DATA_DIR, 'load_negotiations.json');
+const DOCUMENTS_FILE = path.join(DATA_DIR, 'load_documents.json');
+const TOKENS_FILE = path.join(DATA_DIR, 'public_tokens.json');
+const MESSAGE_DRAFTS_FILE = path.join(DATA_DIR, 'message_drafts.json');
+
 const seedContacts = [];
 
 const seedSettings = {
@@ -65,6 +74,40 @@ const writeFallbackLogs = (logs) => writeJsonFile(LOGS_FILE, logs);
 const readFallbackInbound = () => readJsonFile(INBOUND_FILE, []);
 const writeFallbackInbound = (inbound) => writeJsonFile(INBOUND_FILE, inbound);
 
+const TRIPS_FILE = path.join(DATA_DIR, 'trips.json');
+const INVOICES_FILE = path.join(DATA_DIR, 'invoices.json');
+const SETTLEMENTS_FILE = path.join(DATA_DIR, 'settlements.json');
+const COMMISSIONS_FILE = path.join(DATA_DIR, 'commissions.json');
+const TIMELINE_FILE = path.join(DATA_DIR, 'load_timeline.json');
+
+const readFallbackParties = () => readJsonFile(PARTIES_FILE, []);
+const writeFallbackParties = (parties) => writeJsonFile(PARTIES_FILE, parties);
+const readFallbackTransporters = () => readJsonFile(TRANSPORTERS_FILE, []);
+const writeFallbackTransporters = (transporters) => writeJsonFile(TRANSPORTERS_FILE, transporters);
+const readFallbackVehicles = () => readJsonFile(VEHICLES_FILE, []);
+const writeFallbackVehicles = (vehicles) => writeJsonFile(VEHICLES_FILE, vehicles);
+const readFallbackDrivers = () => readJsonFile(DRIVERS_FILE, []);
+const writeFallbackDrivers = (drivers) => writeJsonFile(DRIVERS_FILE, drivers);
+const readFallbackNegotiations = () => readJsonFile(NEGOTIATIONS_FILE, []);
+const writeFallbackNegotiations = (negotiations) => writeJsonFile(NEGOTIATIONS_FILE, negotiations);
+const readFallbackDocuments = () => readJsonFile(DOCUMENTS_FILE, []);
+const writeFallbackDocuments = (documents) => writeJsonFile(DOCUMENTS_FILE, documents);
+const readFallbackTokens = () => readJsonFile(TOKENS_FILE, []);
+const writeFallbackTokens = (tokens) => writeJsonFile(TOKENS_FILE, tokens);
+
+const readFallbackTrips = () => readJsonFile(TRIPS_FILE, []);
+const writeFallbackTrips = (trips) => writeJsonFile(TRIPS_FILE, trips);
+const readFallbackInvoices = () => readJsonFile(INVOICES_FILE, []);
+const writeFallbackInvoices = (invoices) => writeJsonFile(INVOICES_FILE, invoices);
+const readFallbackSettlements = () => readJsonFile(SETTLEMENTS_FILE, []);
+const writeFallbackSettlements = (settlements) => writeJsonFile(SETTLEMENTS_FILE, settlements);
+const readFallbackCommissions = () => readJsonFile(COMMISSIONS_FILE, []);
+const writeFallbackCommissions = (commissions) => writeJsonFile(COMMISSIONS_FILE, commissions);
+const readFallbackTimeline = () => readJsonFile(TIMELINE_FILE, []);
+const writeFallbackTimeline = (timeline) => writeJsonFile(TIMELINE_FILE, timeline);
+const readFallbackDrafts = () => readJsonFile(MESSAGE_DRAFTS_FILE, []);
+const writeFallbackDrafts = (drafts) => writeJsonFile(MESSAGE_DRAFTS_FILE, drafts);
+
 module.exports = {
   readFallbackContacts,
   writeFallbackContacts,
@@ -80,4 +123,34 @@ module.exports = {
   writeFallbackLogs,
   readFallbackInbound,
   writeFallbackInbound,
+  readFallbackParties,
+  writeFallbackParties,
+  readFallbackTransporters,
+  writeFallbackTransporters,
+  readFallbackVehicles,
+  writeFallbackVehicles,
+  readFallbackDrivers,
+  writeFallbackDrivers,
+  readFallbackNegotiations,
+  writeFallbackNegotiations,
+  readFallbackDocuments,
+  writeFallbackDocuments,
+  readFallbackTokens,
+  writeFallbackTokens,
+  readFallbackTrips,
+  writeFallbackTrips,
+  readFallbackInvoices,
+  writeFallbackInvoices,
+  readFallbackSettlements,
+  writeFallbackSettlements,
+  readFallbackCommissions,
+  writeFallbackCommissions,
+  readFallbackTimeline,
+  writeFallbackTimeline,
+  readFallbackDrafts,
+  writeFallbackDrafts,
 };
+
+
+
+

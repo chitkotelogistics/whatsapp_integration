@@ -55,14 +55,14 @@ const buildLoadNotificationTemplate = (messageText = '', templateName = 'new_loa
   let vehicle = vehicleMatch ? vehicleMatch[1].trim() : '32 FT Open Truck';
   let weight = weightMatch ? weightMatch[1].trim() : '25 Tons';
   let freight = freightMatch ? freightMatch[1].replace(/[^\d\.]/g, '').trim() || '42000' : '42000';
-  let contact = contactMatch ? contactMatch[1].replace(/\D/g, '').slice(-10) : (phoneDigitsMatch ? phoneDigitsMatch[0].replace(/\D/g, '').slice(-10) : '9390003955');
+  let contact = contactMatch ? contactMatch[1].trim() : (phoneDigitsMatch ? phoneDigitsMatch[0].replace(/\D/g, '').slice(-10) : '9390003955 / 9390006942');
 
   from = from.replace(/[^\w\s\.-]/gi, '').trim().slice(0, 30) || 'Hyderabad';
   to = to.replace(/[^\w\s\.-]/gi, '').trim().slice(0, 30) || 'Chennai';
   vehicle = vehicle.replace(/[^\w\s\.-]/gi, '').trim().slice(0, 30) || '32 FT Open Truck';
   weight = weight.replace(/[^\w\s\.-]/gi, '').trim().slice(0, 20) || '25 Tons';
   freight = freight.replace(/[^\w\s\.-]/gi, '').trim().slice(0, 20) || '42000';
-  contact = contact.slice(-10) || '9390003955';
+  contact = contact.replace(/[^\d\s\/\,\+\-]/g, '').trim().slice(0, 45) || '9390003955 / 9390006942';
 
   const name = templateName || 'new_load_available_utility';
   return {

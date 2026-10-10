@@ -17,11 +17,37 @@ const addIndexIfMissing = async (table, indexName, columnsSql) => {
   }
 };
 
+const addColumnIfMissing = async (table, columnName, columnDef) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT COUNT(1) as cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+      [table, columnName]
+    );
+
+    if (rows[0] && rows[0].cnt === 0) {
+      await pool.query(`ALTER TABLE ${table} ADD COLUMN ${columnName} ${columnDef}`);
+    }
+  } catch (error) {
+    // Ignore column creation errors
+  }
+};
+
 const initializeDatabase = async () => {
   try {
     const schemaPath = path.resolve(__dirname, '../../sql/schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     await pool.query(schema);
+
+    // Migration for loads table fields
+    await addColumnIfMissing('loads', 'party_id', 'INT NULL');
+    await addColumnIfMissing('loads', 'party_rate', 'DECIMAL(12,2) DEFAULT 0.00');
+    await addColumnIfMissing('loads', 'transporter_id', 'INT NULL');
+    await addColumnIfMissing('loads', 'transporter_rate', 'DECIMAL(12,2) DEFAULT 0.00');
+    await addColumnIfMissing('loads', 'ck_margin', 'DECIMAL(12,2) DEFAULT 0.00');
+    await addColumnIfMissing('loads', 'vehicle_id', 'INT NULL');
+    await addColumnIfMissing('loads', 'driver_id', 'INT NULL');
+    await addColumnIfMissing('loads', 'status', 'VARCHAR(50) DEFAULT "LOAD_CREATED"');
+    await addColumnIfMissing('loads', 'required_documents', 'JSON NULL');
 
     // Apply performance indexes
     await addIndexIfMissing('contacts', 'idx_contacts_mobile', 'mobile');
@@ -32,10 +58,11 @@ const initializeDatabase = async () => {
     await addIndexIfMissing('scheduled_messages', 'idx_scheduled_messages_status_date', 'status, scheduled_at');
     await addIndexIfMissing('loads', 'idx_loads_load_id', 'load_id');
 
-    console.log('Database initialized with performance indexes');
+    console.log('Database initialized with master tables and performance indexes');
   } catch (error) {
     console.error('Database initialization warning:', error.message);
   }
 };
 
 module.exports = initializeDatabase;
+

@@ -164,11 +164,21 @@ const importContacts = async (req, res) => {
   });
 
   try {
-    for (const contact of contactsToInsert) {
-      await db.execute(
-        'INSERT INTO contacts (name, mobile, company, city, state, vehicle_type, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [contact.name, contact.mobile, contact.company, contact.city, contact.state, contact.vehicle_type, contact.is_active]
-      );
+    const chunkSize = 200;
+    for (let i = 0; i < contactsToInsert.length; i += chunkSize) {
+      const chunk = contactsToInsert.slice(i, i + chunkSize);
+      const values = [];
+      const placeholders = chunk.map((c) => {
+        values.push(c.name, c.mobile, c.company, c.city, c.state, c.vehicle_type, c.is_active);
+        return '(?, ?, ?, ?, ?, ?, ?)';
+      }).join(', ');
+
+      if (placeholders) {
+        await db.execute(
+          `INSERT IGNORE INTO contacts (name, mobile, company, city, state, vehicle_type, is_active) VALUES ${placeholders}`,
+          values
+        ).catch(() => {});
+      }
     }
   } catch (error) {
     // DB write error handled via fallback store below
