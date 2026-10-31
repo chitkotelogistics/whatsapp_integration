@@ -5,6 +5,8 @@ const { getSettingsConfig } = require('../services/settingsService');
 const { readFallbackLoads, writeFallbackLoads, readFallbackContacts, writeFallbackContacts, readFallbackSettings, writeFallbackSettings, readFallbackLogs, writeFallbackLogs, readFallbackInbound, writeFallbackInbound, readFallbackDrafts, writeFallbackDrafts } = require('../utils/fileStore');
 
 const memoryLogs = [];
+// Idempotency cache to prevent duplicate webhook processing (stores up to 5,000 recent message IDs)
+const processedWebhookMessageIds = new Set();
 
 const normalizePhone = (value = '') => {
   let cleaned = String(value || '').replace(/\D/g, '');
@@ -784,6 +786,22 @@ const webhook = async (req, res) => {
 
         if (Array.isArray(val.messages)) {
           for (const msgItem of val.messages) {
+            const msgId = msgItem.id || null;
+            if (msgId && processedWebhookMessageIds.has(msgId)) {
+              console.log(`[Webhook] Duplicate incoming message ID skipped: ${msgId}`);
+              continue;
+            }
+            if (msgId) {
+              processedWebhookMessageIds.add(msgId);
+              if (processedWebhookMessageIds.size > 5000) {
+                const oldestKeys = processedWebhookMessageIds.values();
+                for (let k = 0; k < 1000; k++) {
+                  const item = oldestKeys.next();
+                  if (item.done) break;
+                  processedWebhookMessageIds.delete(item.value);
+                }
+              }
+            }
             const from = msgItem.from || 'unknown';
             const textBody = msgItem.text?.body || msgItem.button?.text || msgItem.interactive?.button_reply?.title || msgItem.type || 'Hi';
             const normalizedFrom = normalizePhone(from);
@@ -795,7 +813,8 @@ const webhook = async (req, res) => {
               const senderName = val.contacts?.[0]?.profile?.name || `Driver (${normalizedFrom.slice(-10)})`;
 
               const inboundEntry = {
-                id: Date.now(),
+                id: msgId || Date.now(),
+                msg_id: msgId || null,
                 mobile: normalizedFrom,
                 message: textBody,
                 sender_name: senderName,
@@ -863,36 +882,7 @@ const webhook = async (req, res) => {
               }
             }
 
-            try {
-              const config = await getSettingsConfig();
-              const loads = readFallbackLoads();
-              const latestLoad = loads[0] || {};
-              const replyText = `🚛 Welcome to Chitkote Logistics!
-
-Hello! Thank you for reaching out to Chitkote Logistics India Private Limited. 
-
-We have received your message regarding load inquiry. Our team will review your rate / offer and reply to you shortly on WhatsApp.
-
-📞 Urgent support call: 9390003955.`;
-
-              const replyResult = await sendMessage(config, {
-                to: normalizedFrom,
-                message: replyText,
-                type: 'text',
-              });
-
-              console.log(`✓ Instant Auto-Reply delivered to ${normalizedFrom}:`, replyResult?.messages?.[0]?.id || 'delivered');
-              await persistMessageLog({
-                contactId: null,
-                mobile: normalizedFrom,
-                message: replyText,
-                status: 'sent',
-                responseData: JSON.stringify(replyResult),
-                messageId: replyResult?.messages?.[0]?.id || null,
-              });
-            } catch (autoReplyErr) {
-              console.error('Auto-reply error:', autoReplyErr.message);
-            }
+            // Inbound message logging & quote detection complete. Auto-reply disabled to eliminate Service charges.
           }
         }
       }
